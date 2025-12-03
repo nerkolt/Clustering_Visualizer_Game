@@ -146,16 +146,115 @@ class KMeansGame:
         self.last_iteration_time = 0
         self.iteration_delay = 150  # milliseconds between iterations
         
+        # Data mining features
+        self.inertia_history = []  # Track inertia over iterations
+        self.show_stats = False  # Toggle advanced stats panel
+        self.show_graph = False  # Toggle convergence graph
+        self.show_elbow = False  # Toggle elbow method view
+        self.dataset_type = "random"  # Current dataset type
+        self.elbow_data = []  # Store elbow method results
+        
         # Generate random points
         self.generate_points(50)
         self.reset_centroids()
     
     def generate_points(self, n):
+        """Generate random points"""
         self.points = []
         for _ in range(n):
             x = random.randint(80, WIDTH - 80)
             y = random.randint(80, HEIGHT - 140)
             self.points.append(Point(x, y))
+        self.dataset_type = "random"
+    
+    def generate_blobs(self, n, centers=None):
+        """Generate well-separated blob clusters"""
+        if centers is None:
+            centers = self.k
+        
+        self.points = []
+        points_per_cluster = n // centers
+        margin = 100
+        
+        for i in range(centers):
+            # Center of each blob
+            center_x = random.randint(margin + 150, WIDTH - margin - 150)
+            center_y = random.randint(margin + 100, HEIGHT - margin - 200)
+            
+            # Generate points around center with Gaussian-like distribution
+            for _ in range(points_per_cluster):
+                angle = random.uniform(0, 2 * math.pi)
+                radius = random.gauss(0, 40)  # Standard deviation of 40
+                x = center_x + radius * math.cos(angle)
+                y = center_y + radius * math.sin(angle)
+                
+                # Clamp to screen bounds
+                x = max(margin, min(WIDTH - margin, x))
+                y = max(margin, min(HEIGHT - margin - 120, y))
+                
+                self.points.append(Point(x, y))
+        
+        # Add remaining points randomly
+        for _ in range(n - (points_per_cluster * centers)):
+            x = random.randint(80, WIDTH - 80)
+            y = random.randint(80, HEIGHT - 140)
+            self.points.append(Point(x, y))
+        
+        self.dataset_type = "blobs"
+    
+    def generate_moons(self, n):
+        """Generate two moon-shaped clusters"""
+        self.points = []
+        half = n // 2
+        
+        # First moon (upper)
+        for i in range(half):
+            angle = random.uniform(0, math.pi)
+            radius = random.uniform(60, 100)
+            x = WIDTH // 2 - 150 + radius * math.cos(angle)
+            y = HEIGHT // 2 - 100 + radius * math.sin(angle)
+            x = max(80, min(WIDTH - 80, x))
+            y = max(80, min(HEIGHT - 140, y))
+            self.points.append(Point(x, y))
+        
+        # Second moon (lower)
+        for i in range(n - half):
+            angle = random.uniform(math.pi, 2 * math.pi)
+            radius = random.uniform(60, 100)
+            x = WIDTH // 2 + 150 + radius * math.cos(angle)
+            y = HEIGHT // 2 + 50 + radius * math.sin(angle)
+            x = max(80, min(WIDTH - 80, x))
+            y = max(80, min(HEIGHT - 140, y))
+            self.points.append(Point(x, y))
+        
+        self.dataset_type = "moons"
+    
+    def generate_circles(self, n):
+        """Generate concentric circle clusters"""
+        self.points = []
+        center_x, center_y = WIDTH // 2, HEIGHT // 2 - 60
+        
+        # Inner circle
+        for i in range(n // 3):
+            angle = random.uniform(0, 2 * math.pi)
+            radius = random.uniform(30, 70)
+            x = center_x + radius * math.cos(angle)
+            y = center_y + radius * math.sin(angle)
+            x = max(80, min(WIDTH - 80, x))
+            y = max(80, min(HEIGHT - 140, y))
+            self.points.append(Point(x, y))
+        
+        # Outer circle
+        for i in range(n - n // 3):
+            angle = random.uniform(0, 2 * math.pi)
+            radius = random.uniform(120, 180)
+            x = center_x + radius * math.cos(angle)
+            y = center_y + radius * math.sin(angle)
+            x = max(80, min(WIDTH - 80, x))
+            y = max(80, min(HEIGHT - 140, y))
+            self.points.append(Point(x, y))
+        
+        self.dataset_type = "circles"
     
     def reset_centroids(self):
         self.centroids = []
@@ -165,6 +264,7 @@ class KMeansGame:
             self.centroids.append(Centroid(x, y, COLORS[i % len(COLORS)]))
         self.iteration_count = 0
         self.converged = False
+        self.inertia_history = []  # Reset inertia history
     
     def assign_clusters(self):
         """Assign each point to nearest centroid"""
@@ -212,12 +312,29 @@ class KMeansGame:
                 centroid.target_x = mean_x
                 centroid.target_y = mean_y
     
+    def calculate_inertia(self):
+        """Calculate Within-Cluster Sum of Squares (WCSS) / Inertia"""
+        total = 0
+        for point in self.points:
+            if point.cluster is not None:
+                centroid = self.centroids[point.cluster]
+                total += point.distance_squared_to(centroid)
+        return total
+    
     def kmeans_step(self):
         """One iteration of K-Means"""
         if not self.converged:
             no_changes = self.assign_clusters()
             self.update_centroids()
             self.iteration_count += 1
+            
+            # Track inertia for convergence graph
+            inertia = self.calculate_inertia()
+            self.inertia_history.append(inertia)
+            
+            # Keep only last 100 iterations for graph
+            if len(self.inertia_history) > 100:
+                self.inertia_history.pop(0)
             
             if no_changes:
                 self.converged = True
@@ -295,9 +412,21 @@ class KMeansGame:
         for particle in self.particles:
             particle.draw(self.screen)
         
+        # Draw convergence graph
+        if self.show_graph:
+            self.draw_convergence_graph()
+        
+        # Draw elbow method visualizer
+        if self.show_elbow:
+            self.draw_elbow_method()
+        
         # Draw debug panel (top-right)
         if self.show_debug:
             self.draw_debug_panel()
+        
+        # Draw stats panel (if enabled)
+        if self.show_stats:
+            self.draw_stats_panel()
         
         # Draw main UI panel
         panel_rect = pygame.Rect(0, HEIGHT - 120, WIDTH, 120)
@@ -312,9 +441,9 @@ class KMeansGame:
         
         # Draw controls
         controls = [
-            "SPACE: Step  |  A: Auto  |  R: Reset  |  D: Debug  |  C: Clear All",
-            f"P: Set Points  |  K: Set Clusters  |  Iterations: {self.iteration_count}",
-            "LEFT CLICK: Add point  |  RIGHT CLICK: Move centroid"
+            "SPACE: Step  |  A: Auto  |  R: Reset  |  D: Debug  |  C: Clear",
+            f"P: Points  |  K: Clusters  |  S: Stats  |  G: Graph  |  E: Elbow  |  Iter: {self.iteration_count}",
+            "1: Blobs  |  2: Moons  |  3: Circles  |  4: Random  |  Click: Add/Move"
         ]
         
         y_offset = HEIGHT - 100
@@ -345,6 +474,9 @@ class KMeansGame:
             (f"Iterations: {self.iteration_count}", TEXT_COLOR),
             (f"Particles: {len(self.particles)}", TEXT_COLOR),
             (f"Converged: {'Yes' if self.converged else 'No'}", TEXT_COLOR),
+            ("", TEXT_COLOR),
+            (f"Inertia: {int(self.calculate_inertia())}", COLORS[1]),
+            (f"Dataset: {self.dataset_type}", TEXT_COLOR),
             ("", TEXT_COLOR),
             ("Cluster Sizes:", COLORS[2]),
         ]
@@ -416,6 +548,234 @@ class KMeansGame:
         instr_surf = self.small_font.render(instruction, True, COLORS[3])
         instr_rect = instr_surf.get_rect(center=(dialog_x + dialog_width // 2, dialog_y + 120))
         self.screen.blit(instr_surf, instr_rect)
+    
+    def draw_convergence_graph(self):
+        """Draw a graph showing inertia over iterations"""
+        graph_width = 300
+        graph_height = 150
+        graph_x = 10
+        graph_y = 10
+        
+        if len(self.inertia_history) < 2:
+            return
+        
+        # Background
+        s = pygame.Surface((graph_width, graph_height), pygame.SRCALPHA)
+        pygame.draw.rect(s, (*UI_BG, 240), (0, 0, graph_width, graph_height))
+        pygame.draw.rect(s, COLORS[2], (0, 0, graph_width, graph_height), 2)
+        self.screen.blit(s, (graph_x, graph_y))
+        
+        # Title
+        title = self.tiny_font.render("Convergence Graph (Inertia)", True, COLORS[2])
+        self.screen.blit(title, (graph_x + 5, graph_y + 5))
+        
+        # Draw graph
+        if len(self.inertia_history) > 1:
+            max_inertia = max(self.inertia_history)
+            min_inertia = min(self.inertia_history)
+            range_inertia = max_inertia - min_inertia if max_inertia != min_inertia else 1
+            
+            graph_padding = 30
+            plot_width = graph_width - graph_padding * 2
+            plot_height = graph_height - graph_padding * 2
+            
+            points = []
+            for i, inertia in enumerate(self.inertia_history):
+                x = graph_x + graph_padding + (i / (len(self.inertia_history) - 1)) * plot_width
+                normalized = (inertia - min_inertia) / range_inertia
+                y = graph_y + graph_padding + plot_height - (normalized * plot_height)
+                points.append((x, y))
+            
+            # Draw line
+            if len(points) > 1:
+                pygame.draw.lines(self.screen, COLORS[1], False, points, 2)
+            
+            # Draw current value
+            if self.inertia_history:
+                current = self.inertia_history[-1]
+                value_text = self.tiny_font.render(f"Current: {int(current)}", True, COLORS[1])
+                self.screen.blit(value_text, (graph_x + 5, graph_y + graph_height - 20))
+    
+    def draw_elbow_method(self):
+        """Draw elbow method visualizer (K vs Inertia)"""
+        if not self.elbow_data:
+            return
+        
+        panel_width = 280
+        panel_height = 200
+        panel_x = WIDTH - panel_width - 10
+        panel_y = HEIGHT - panel_height - 130
+        
+        # Background
+        s = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        pygame.draw.rect(s, (*UI_BG, 240), (0, 0, panel_width, panel_height))
+        pygame.draw.rect(s, COLORS[0], (0, 0, panel_width, panel_height), 2)
+        self.screen.blit(s, (panel_x, panel_y))
+        
+        # Title
+        title = self.small_font.render("Elbow Method (K vs Inertia)", True, COLORS[0])
+        self.screen.blit(title, (panel_x + 10, panel_y + 5))
+        
+        if len(self.elbow_data) > 1:
+            max_inertia = max(d[1] for d in self.elbow_data)
+            min_inertia = min(d[1] for d in self.elbow_data)
+            range_inertia = max_inertia - min_inertia if max_inertia != min_inertia else 1
+            
+            graph_padding = 40
+            plot_width = panel_width - graph_padding * 2
+            plot_height = panel_height - graph_padding * 2
+            
+            points = []
+            for k, inertia in self.elbow_data:
+                x = panel_x + graph_padding + ((k - 1) / (len(self.elbow_data) - 1)) * plot_width
+                normalized = (inertia - min_inertia) / range_inertia
+                y = panel_y + graph_padding + plot_height - (normalized * plot_height)
+                points.append((x, y))
+            
+            # Draw line
+            if len(points) > 1:
+                pygame.draw.lines(self.screen, COLORS[1], False, points, 2)
+            
+            # Draw points
+            for i, (k, inertia) in enumerate(self.elbow_data):
+                if i < len(points):
+                    pygame.draw.circle(self.screen, COLORS[1], (int(points[i][0]), int(points[i][1])), 4)
+                    k_text = self.tiny_font.render(f"K={k}", True, TEXT_COLOR)
+                    self.screen.blit(k_text, (int(points[i][0]) - 10, int(points[i][1]) + 5))
+    
+    def calculate_cluster_metrics(self):
+        """Calculate advanced cluster quality metrics"""
+        metrics = {}
+        
+        for i in range(self.k):
+            cluster_points = [p for p in self.points if p.cluster == i]
+            if not cluster_points:
+                continue
+            
+            centroid = self.centroids[i]
+            
+            # Average distance to centroid
+            distances = [p.distance_to(centroid) for p in cluster_points]
+            avg_dist = sum(distances) / len(distances) if distances else 0
+            
+            # Variance (compactness)
+            variance = sum((d - avg_dist)**2 for d in distances) / len(distances) if distances else 0
+            
+            metrics[i] = {
+                'size': len(cluster_points),
+                'avg_distance': avg_dist,
+                'variance': variance,
+                'compactness': 1.0 / (1.0 + variance)  # Higher is better
+            }
+        
+        return metrics
+    
+    def draw_stats_panel(self):
+        """Draw advanced statistics panel"""
+        panel_width = 250
+        panel_x = 10
+        panel_y = HEIGHT - 350
+        
+        metrics = self.calculate_cluster_metrics()
+        inertia = self.calculate_inertia()
+        
+        # Calculate cluster separation
+        min_separation = float('inf')
+        for i in range(self.k):
+            for j in range(i + 1, self.k):
+                dist = self.centroids[i].distance_to(self.centroids[j])
+                min_separation = min(min_separation, dist)
+        
+        # Count lines needed
+        num_lines = 8 + len(metrics) * 3
+        panel_height = num_lines * 18 + 20
+        
+        # Background
+        s = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        pygame.draw.rect(s, (*UI_BG, 240), (0, 0, panel_width, panel_height))
+        pygame.draw.rect(s, COLORS[4], (0, 0, panel_width, panel_height), 2)
+        self.screen.blit(s, (panel_x, panel_y))
+        
+        y = panel_y + 10
+        
+        # Title
+        title = self.small_font.render("ADVANCED STATS", True, COLORS[4])
+        self.screen.blit(title, (panel_x + 10, y))
+        y += 25
+        
+        # Overall metrics
+        stats = [
+            (f"Inertia (WCSS): {int(inertia)}", COLORS[1]),
+            (f"Min Separation: {int(min_separation)}", TEXT_COLOR),
+            ("", TEXT_COLOR),
+            ("Per-Cluster Metrics:", COLORS[2]),
+        ]
+        
+        for text, color in stats:
+            if text:
+                surface = self.tiny_font.render(text, True, color)
+                self.screen.blit(surface, (panel_x + 10, y))
+            y += 18
+        
+        # Cluster-specific metrics
+        for i, metric in metrics.items():
+            cluster_text = [
+                (f"  Cluster {i+1}:", self.centroids[i].color),
+                (f"    Size: {metric['size']}", TEXT_COLOR),
+                (f"    Avg Dist: {metric['avg_distance']:.1f}", TEXT_COLOR),
+                (f"    Compactness: {metric['compactness']:.2f}", TEXT_COLOR),
+            ]
+            for text, color in cluster_text:
+                surface = self.tiny_font.render(text, True, color)
+                self.screen.blit(surface, (panel_x + 10, y))
+                y += 18
+    
+    def run_elbow_method(self):
+        """Run elbow method: test K from 1 to 10 and show results"""
+        if not self.points:
+            return
+        
+        self.elbow_data = []
+        original_k = self.k
+        original_iteration = self.iteration_count
+        original_converged = self.converged
+        
+        # Save current point cluster assignments
+        original_clusters = [p.cluster for p in self.points]
+        
+        # Test K from 1 to min(10, number of points)
+        max_k = min(10, len(self.points))
+        
+        for test_k in range(1, max_k + 1):
+            self.k = test_k
+            self.reset_centroids()
+            
+            # Reset point clusters
+            for point in self.points:
+                point.cluster = None
+                point.prev_cluster = None
+            
+            # Run until convergence or max iterations
+            max_iterations = 50
+            for _ in range(max_iterations):
+                if self.converged:
+                    break
+                self.kmeans_step()
+            
+            inertia = self.calculate_inertia()
+            self.elbow_data.append((test_k, inertia))
+        
+        # Restore original state
+        self.k = original_k
+        self.iteration_count = original_iteration
+        self.converged = original_converged
+        self.reset_centroids()
+        
+        # Restore point clusters
+        for i, point in enumerate(self.points):
+            point.cluster = original_clusters[i] if i < len(original_clusters) else None
+        
+        self.show_elbow = True
     
     def update(self):
         # Update all animations
@@ -492,6 +852,41 @@ class KMeansGame:
                         self.reset_centroids()
                     elif event.key == pygame.K_DOWN:
                         self.k = max(1, self.k - 1)
+                        self.reset_centroids()
+                    elif event.key == pygame.K_s:
+                        self.show_stats = not self.show_stats
+                    elif event.key == pygame.K_g:
+                        self.show_graph = not self.show_graph
+                    elif event.key == pygame.K_e:
+                        self.run_elbow_method()
+                    elif event.key == pygame.K_1:
+                        # Dataset presets
+                        if len(self.points) > 0:
+                            n = len(self.points)
+                        else:
+                            n = 50
+                        self.generate_blobs(n)
+                        self.reset_centroids()
+                    elif event.key == pygame.K_2:
+                        if len(self.points) > 0:
+                            n = len(self.points)
+                        else:
+                            n = 50
+                        self.generate_moons(n)
+                        self.reset_centroids()
+                    elif event.key == pygame.K_3:
+                        if len(self.points) > 0:
+                            n = len(self.points)
+                        else:
+                            n = 50
+                        self.generate_circles(n)
+                        self.reset_centroids()
+                    elif event.key == pygame.K_4:
+                        if len(self.points) > 0:
+                            n = len(self.points)
+                        else:
+                            n = 50
+                        self.generate_points(n)
                         self.reset_centroids()
             
             elif event.type == pygame.MOUSEBUTTONDOWN and not self.input_active:

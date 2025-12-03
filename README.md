@@ -39,6 +39,14 @@ Perfect for:
 - Custom point generation (1-500 points)
 - Real-time performance monitoring
 
+### 📊 Data Mining Features
+- **Inertia/WCSS Calculation**: Real-time Within-Cluster Sum of Squares metric
+- **Dataset Presets**: Pre-built datasets (Blobs, Moons, Circles, Random)
+- **Convergence Graph**: Visualize inertia decreasing over iterations
+- **Elbow Method**: Automatically test K values to find optimal cluster count
+- **Advanced Statistics**: Detailed cluster quality metrics (compactness, separation, variance)
+- **Cluster Quality Metrics**: Per-cluster analysis with color-coded visualization
+
 ## 📋 Requirements
 
 - **Python 3.7+**
@@ -100,6 +108,7 @@ python Kmeans_Game_Debug.py
 
 ### Keyboard Controls
 
+#### Basic Controls
 | Key | Action |
 |-----|--------|
 | `SPACE` | Run **one step** of K-Means algorithm |
@@ -112,6 +121,17 @@ python Kmeans_Game_Debug.py
 | `C` | Clear all points |
 | `ESC` | Cancel input dialog / Close window |
 | `ENTER` | Confirm input in dialog |
+
+#### Data Mining & Analysis Controls
+| Key | Action |
+|-----|--------|
+| `S` | Toggle **advanced stats panel** (cluster quality metrics) |
+| `G` | Toggle **convergence graph** (inertia over iterations) |
+| `E` | Run **elbow method** (find optimal K) |
+| `1` | Generate **Blobs** dataset (well-separated clusters) |
+| `2` | Generate **Moons** dataset (crescent-shaped, non-linear) |
+| `3` | Generate **Circles** dataset (concentric rings) |
+| `4` | Generate **Random** dataset (uniform distribution) |
 
 ### Mouse Controls
 
@@ -140,9 +160,79 @@ Press `D` to toggle the debug overlay (top-right corner). It displays:
 - **Iterations**: Number of algorithm iterations performed
 - **Particles**: Active particle effects count
 - **Converged**: Whether the algorithm has converged
+- **Inertia (WCSS)**: Within-Cluster Sum of Squares (lower is better)
+- **Dataset**: Current dataset type (random/blobs/moons/circles)
 - **Cluster Sizes**: Point count per cluster (color-coded)
 
 The panel automatically resizes based on the number of clusters!
+
+## 📊 Data Mining Features
+
+### Inertia (WCSS) Metric
+
+**Inertia** (Within-Cluster Sum of Squares) measures how tightly points are clustered around their centroids. Lower inertia means better clustering!
+
+- Displayed in real-time in the debug panel
+- Tracked over iterations for the convergence graph
+- Used in the elbow method to find optimal K
+
+### Dataset Presets
+
+Test K-Means on different data distributions:
+
+- **Blobs** (`1`): Well-separated Gaussian clusters - perfect for K-Means
+- **Moons** (`2`): Two crescent-shaped clusters - challenges K-Means (non-linear)
+- **Circles** (`3`): Concentric ring clusters - another non-linear challenge
+- **Random** (`4`): Uniform random distribution - baseline test
+
+**Tip**: Try the Moons dataset with K=2 to see how K-Means struggles with non-linear data!
+
+### Convergence Graph
+
+Press `G` to toggle the convergence graph (top-left corner).
+
+- Shows **inertia decreasing** over iterations
+- Visualizes algorithm progress in real-time
+- Helps identify when convergence is reached
+- Updates automatically as the algorithm runs
+
+**What to look for**: A downward trend that flattens out indicates convergence.
+
+### Elbow Method
+
+Press `E` to run the elbow method analysis (bottom-right corner).
+
+The elbow method helps you find the **optimal number of clusters (K)** by:
+1. Testing K values from 1 to 10
+2. Calculating inertia for each K
+3. Plotting K vs Inertia
+4. Finding the "elbow" point where adding more clusters doesn't help much
+
+**How to read it**: Look for the point where the line bends sharply (the "elbow"). That's usually the optimal K!
+
+**Note**: The elbow method may take a few seconds to compute as it runs the algorithm for each K value.
+
+### Advanced Statistics Panel
+
+Press `S` to toggle the advanced statistics panel (left side).
+
+Displays comprehensive cluster quality metrics:
+
+#### Overall Metrics
+- **Inertia (WCSS)**: Total within-cluster sum of squares
+- **Min Separation**: Distance between closest centroids
+
+#### Per-Cluster Metrics
+For each cluster (color-coded):
+- **Size**: Number of points in the cluster
+- **Avg Distance**: Average distance from points to centroid
+- **Compactness**: Measure of how tightly packed the cluster is (higher is better)
+
+**Use cases**:
+- Compare cluster quality across different K values
+- Identify unbalanced clusters
+- Analyze cluster compactness and separation
+- Validate clustering results
 
 ## 📁 Project Structure
 
@@ -179,6 +269,16 @@ These steps repeat until:
 - Points change color when reassigned to a different cluster
 - Centroids smoothly move to the center of their clusters
 - The algorithm converges when no more changes occur
+
+### Key Concepts
+
+**Inertia (WCSS)**: Measures cluster quality by summing squared distances from points to their centroids. Lower inertia = tighter, better clusters.
+
+**Convergence**: The algorithm stops when no points change clusters between iterations, meaning the clusters are stable.
+
+**Optimal K**: Finding the right number of clusters is crucial. Too few = oversimplified, too many = overfitted. Use the elbow method (`E`) to help!
+
+**Limitations**: K-Means assumes clusters are spherical and similar in size. Try the Moons (`2`) or Circles (`3`) datasets to see where it struggles.
 
 ## 🐛 Troubleshooting
 
@@ -232,6 +332,28 @@ Contributions are welcome! Feel free to:
 ## 📧 Contact & Support
 
 For questions, issues, or suggestions, please open an issue on the GitHub repository.
+
+---
+
+## 🚀 Quick Start Guide
+
+1. **Run the application**: `python Scripts/Kmeans_Game_Debug.py`
+2. **Try a dataset**: Press `1` for blobs, `2` for moons, `3` for circles
+3. **Watch it cluster**: Press `A` for auto-mode or `SPACE` to step through
+4. **Analyze results**: 
+   - Press `G` to see the convergence graph
+   - Press `S` to view detailed statistics
+   - Press `E` to find optimal K with elbow method
+5. **Experiment**: Change K with `↑`/`↓` or `K`, try different datasets, add your own points!
+
+## 💡 Pro Tips
+
+- **Start with Blobs** (`1`) to see K-Means at its best
+- **Try Moons** (`2`) with K=2 to see K-Means limitations with non-linear data
+- **Use Elbow Method** (`E`) before manually choosing K
+- **Watch the Convergence Graph** (`G`) to understand algorithm progress
+- **Check Stats Panel** (`S`) to compare cluster quality
+- **Lower Inertia = Better Clustering** - watch it decrease as clusters improve!
 
 ---
 
