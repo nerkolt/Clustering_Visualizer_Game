@@ -4,7 +4,7 @@ An interactive, visual way to understand the famous **K-Means** clustering algor
 
 Watch points get assigned to clusters, see centroids move to the center of their groups, and play with the parameters yourself — all in a fun game-like environment!
 
-![screenshot](Start.png)  
+![screenshot](./Assets/Start.png)  
 
 ## Features
 
@@ -46,3 +46,4 @@ pip install pygame
 
 # 3. Run the game!
 python kmeans_game.py
+```
