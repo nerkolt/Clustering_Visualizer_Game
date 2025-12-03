@@ -1,9 +1,5 @@
 # K-Means Clustering Game 🎮
 
-An interactive, visual way to understand the famous **K-Means** clustering algorithm in real time using Python and Pygame.
-
-Watch points get assigned to clusters, see centroids move to the center of their groups, and play with the parameters yourself — all in a fun game-like environment!
-
 ![screenshot](./Assets/Start.png)  
 
 ## Features
