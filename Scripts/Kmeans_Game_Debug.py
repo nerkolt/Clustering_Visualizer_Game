@@ -9,10 +9,16 @@ import time
 pygame.init()
 
 # Constants
-WIDTH, HEIGHT = 800, 600
+# Bigger window so UI fits comfortably
+WIDTH, HEIGHT = 1200, 800
 FPS = 60
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
+
+# Layout
+UI_PANEL_HEIGHT = 140  # bottom UI bar height
+TOP_MARGIN = 80
+SIDE_MARGIN = 80
 
 # Modern color palette (softer, more aesthetic)
 COLORS = [
@@ -128,6 +134,10 @@ class KMeansGame:
         self.font = pygame.font.Font(None, 32)
         self.small_font = pygame.font.Font(None, 22)
         self.tiny_font = pygame.font.Font(None, 18)
+        self.menu_title_font = pygame.font.Font(None, 54)
+        self.menu_section_font = pygame.font.Font(None, 30)
+        self.menu_item_font = pygame.font.Font(None, 26)
+        self.menu_hint_font = pygame.font.Font(None, 22)
 
         # Scene system
         # - "menu": main menu (choose algorithm/dataset/K/points)
@@ -195,6 +205,13 @@ class KMeansGame:
         self.menu_dataset = "random"  # random/blobs/moons/circles/csv
         self.menu_points = 50
         self.menu_k = self.k
+        self.menu_start_mode = "single"  # single/battle
+        self.menu_voronoi = False
+        self.menu_message = ""
+        self.menu_message_until = 0
+        self._menu_preview_cache_key = None
+        self._menu_preview_xy = []
+        self._menu_layout_cache = None
 
         # CSV dataset buffer (loaded points)
         self.csv_points = []  # list[(x, y)]
@@ -208,14 +225,19 @@ class KMeansGame:
         self.menu_points = len(self.points) if self.points else 50
         self.menu_k = self.k
         self.menu_dataset = self.dataset_type if self.dataset_type else "random"
+        self.menu_start_mode = "battle" if self.battle_mode else "single"
+        self.menu_voronoi = bool(self.show_voronoi)
         if self.menu_dataset == "csv":
             # Keep last imported/used CSV points so menu can start with them again
             self.csv_points = [(p.x, p.y) for p in self.points]
+        self._regen_menu_preview()
 
     def _apply_menu_settings_and_start(self):
         self.algorithm = self.menu_algorithm
         self.algorithm_b = "kmedoids" if self.algorithm == "kmeans" else "kmeans"
         self.k = self.menu_k
+        self.show_voronoi = bool(self.menu_voronoi)
+        self.battle_mode = (self.menu_start_mode == "battle")
 
         # Generate dataset using chosen point count
         n = int(self.menu_points)
@@ -238,16 +260,14 @@ class KMeansGame:
         else:
             self.generate_points(n)
 
-        # Reset algorithm state + assignments
+        # Reset algorithm state + assignments (battle mode uses both sides)
+        self._invalidate_voronoi_cache()
         self.reset_algorithm()
 
         # Reset UI toggles for a clean start
         self.auto_iterate = False
         self.show_elbow = False
         self.elbow_data = []
-
-        # Default start: single view (battle can be toggled in-game with B)
-        self.battle_mode = False
 
         self.scene = "game"
 
@@ -332,6 +352,7 @@ class KMeansGame:
         self.csv_points = xy
         self.menu_dataset = "csv"
         self.menu_points = len(xy)
+        self._regen_menu_preview()
 
         if not stay_in_menu:
             self._set_points_from_xy_list(xy)
@@ -368,6 +389,181 @@ class KMeansGame:
             writer.writerows(rows)
 
         return True
+
+    def _set_menu_message(self, text, duration_ms=2500):
+        self.menu_message = text
+        self.menu_message_until = pygame.time.get_ticks() + int(duration_ms)
+
+    def _menu_dataset_label(self):
+        if self.menu_dataset == "csv":
+            return "CSV (loaded)" if self.csv_points else "CSV (none)"
+        return self.menu_dataset.capitalize()
+
+    def _menu_get_items(self):
+        """Declarative menu definition for rendering + input."""
+        return [
+            {
+                "key": "algorithm",
+                "label": "Algorithm",
+                "type": "choice",
+                "value": self.menu_algorithm,
+                "choices": [("kmeans", "K-Means"), ("kmedoids", "K-Medoids")],
+                "hint": "Choose the clustering algorithm.",
+            },
+            {
+                "key": "start_mode",
+                "label": "Mode",
+                "type": "choice",
+                "value": self.menu_start_mode,
+                "choices": [("single", "Single"), ("battle", "Battle (A/B)")],
+                "hint": "Battle mode compares two algorithms side-by-side.",
+            },
+            {
+                "key": "dataset",
+                "label": "Dataset",
+                "type": "choice",
+                "value": self.menu_dataset,
+                "choices": [
+                    ("random", "Random"),
+                    ("blobs", "Blobs"),
+                    ("moons", "Moons"),
+                    ("circles", "Circles"),
+                    ("csv", "CSV"),
+                ],
+                "hint": "Pick a synthetic dataset or load from CSV (x,y).",
+            },
+            {
+                "key": "points",
+                "label": "Points (N)",
+                "type": "int",
+                "value": int(self.menu_points),
+                "min": 1,
+                "max": 500,
+                "step": 10,
+                "hint": "Number of points to generate/use.",
+            },
+            {
+                "key": "k",
+                "label": "Clusters (K)",
+                "type": "int",
+                "value": int(self.menu_k),
+                "min": 1,
+                "max": 10,
+                "step": 1,
+                "hint": "Number of clusters.",
+            },
+            {
+                "key": "voronoi",
+                "label": "Voronoi Regions",
+                "type": "bool",
+                "value": bool(self.menu_voronoi),
+                "hint": "Show decision regions (nearest centroid/medoid).",
+            },
+            {"key": "start", "label": "Start", "type": "action", "hint": "Start the simulation."},
+            {"key": "import", "label": "Import CSV", "type": "action", "hint": "Load a CSV file with x,y columns."},
+            {"key": "export", "label": "Export CSV", "type": "action", "hint": "Export current points (and labels if available)."},
+            {"key": "quit", "label": "Quit", "type": "action", "hint": "Exit the program."},
+        ]
+
+    def _menu_apply_item_value(self, item_key, new_value):
+        """Apply changes coming from menu controls."""
+        if item_key == "algorithm":
+            self.menu_algorithm = new_value
+        elif item_key == "start_mode":
+            self.menu_start_mode = new_value
+        elif item_key == "dataset":
+            self.menu_dataset = new_value
+            if new_value == "csv" and not self.csv_points:
+                self._set_menu_message("No CSV loaded. Press I or choose Import CSV.")
+        elif item_key == "points":
+            self.menu_points = int(new_value)
+        elif item_key == "k":
+            self.menu_k = int(new_value)
+        elif item_key == "voronoi":
+            self.menu_voronoi = bool(new_value)
+        self._regen_menu_preview()
+
+    def _regen_menu_preview(self):
+        """Generate/caches a small preview dataset for the menu right panel."""
+        key = (self.menu_dataset, int(self.menu_points), int(self.menu_k), len(self.csv_points))
+        if self._menu_preview_cache_key == key:
+            return
+        self._menu_preview_cache_key = key
+
+        # Keep preview light
+        n = min(220, max(30, int(self.menu_points)))
+        k = max(1, min(10, int(self.menu_k)))
+
+        def clamp_xy(x, y):
+            x = max(SIDE_MARGIN, min(WIDTH - SIDE_MARGIN, x))
+            y = max(TOP_MARGIN, min(HEIGHT - UI_PANEL_HEIGHT - 20, y))
+            return x, y
+
+        xy = []
+        if self.menu_dataset == "csv":
+            if self.csv_points:
+                xy = list(self.csv_points)
+                if len(xy) > n:
+                    xy = random.sample(xy, n)
+            else:
+                xy = []
+        elif self.menu_dataset == "moons":
+            half = n // 2
+            for _ in range(half):
+                angle = random.uniform(0, math.pi)
+                radius = random.uniform(60, 100)
+                x = WIDTH // 2 - 150 + radius * math.cos(angle)
+                y = HEIGHT // 2 - 100 + radius * math.sin(angle)
+                xy.append(clamp_xy(x, y))
+            for _ in range(n - half):
+                angle = random.uniform(math.pi, 2 * math.pi)
+                radius = random.uniform(60, 100)
+                x = WIDTH // 2 + 150 + radius * math.cos(angle)
+                y = HEIGHT // 2 + 50 + radius * math.sin(angle)
+                xy.append(clamp_xy(x, y))
+        elif self.menu_dataset == "circles":
+            cx, cy = WIDTH // 2, HEIGHT // 2 - 60
+            inner = n // 3
+            for _ in range(inner):
+                angle = random.uniform(0, 2 * math.pi)
+                radius = random.uniform(30, 70)
+                x = cx + radius * math.cos(angle)
+                y = cy + radius * math.sin(angle)
+                xy.append(clamp_xy(x, y))
+            for _ in range(n - inner):
+                angle = random.uniform(0, 2 * math.pi)
+                radius = random.uniform(120, 180)
+                x = cx + radius * math.cos(angle)
+                y = cy + radius * math.sin(angle)
+                xy.append(clamp_xy(x, y))
+        elif self.menu_dataset == "blobs":
+            centers = min(max(2, k), 5)
+            per = max(1, n // centers)
+            margin = 100
+            blob_centers = []
+            for _ in range(centers):
+                blob_centers.append((
+                    random.randint(margin + 150, WIDTH - margin - 150),
+                    random.randint(margin + 100, HEIGHT - margin - 200),
+                ))
+            for i in range(centers):
+                bx, by = blob_centers[i]
+                for _ in range(per):
+                    angle = random.uniform(0, 2 * math.pi)
+                    radius = random.gauss(0, 40)
+                    x = bx + radius * math.cos(angle)
+                    y = by + radius * math.sin(angle)
+                    x = max(margin, min(WIDTH - margin, x))
+                    y = max(margin, min(HEIGHT - margin - 120, y))
+                    xy.append((x, y))
+            while len(xy) < n:
+                xy.append((random.randint(SIDE_MARGIN, WIDTH - SIDE_MARGIN), random.randint(TOP_MARGIN, HEIGHT - UI_PANEL_HEIGHT - 20)))
+        else:
+            # Random (simple uniform preview; keep it fast)
+            for _ in range(n):
+                xy.append((random.randint(SIDE_MARGIN, WIDTH - SIDE_MARGIN), random.randint(TOP_MARGIN, HEIGHT - UI_PANEL_HEIGHT - 20)))
+
+        self._menu_preview_xy = xy
     
     def _generate_spaced_points(self, n, min_dist=25, max_tries_per_point=200):
         """Generate points with a minimum distance between them."""
@@ -378,7 +574,7 @@ class KMeansGame:
             placed = False
             for _try in range(max_tries_per_point):
                 x = random.randint(80, WIDTH - 80)
-                y = random.randint(80, HEIGHT - 140)
+                y = random.randint(TOP_MARGIN, HEIGHT - UI_PANEL_HEIGHT - 20)
                 
                 ok = True
                 for p in self.points:
@@ -396,7 +592,7 @@ class KMeansGame:
             # Fallback (if screen gets too dense for the requested min_dist)
             if not placed:
                 x = random.randint(80, WIDTH - 80)
-                y = random.randint(80, HEIGHT - 140)
+                y = random.randint(TOP_MARGIN, HEIGHT - UI_PANEL_HEIGHT - 20)
                 self.points.append(Point(x, y))
     
     def generate_points(self, n):
@@ -438,7 +634,7 @@ class KMeansGame:
         # Add remaining points randomly
         for _ in range(n - (points_per_cluster * centers)):
             x = random.randint(80, WIDTH - 80)
-            y = random.randint(80, HEIGHT - 140)
+            y = random.randint(TOP_MARGIN, HEIGHT - UI_PANEL_HEIGHT - 20)
             self.points.append(Point(x, y))
         
         self.dataset_type = "blobs"
@@ -455,7 +651,7 @@ class KMeansGame:
             x = WIDTH // 2 - 150 + radius * math.cos(angle)
             y = HEIGHT // 2 - 100 + radius * math.sin(angle)
             x = max(80, min(WIDTH - 80, x))
-            y = max(80, min(HEIGHT - 140, y))
+            y = max(TOP_MARGIN, min(HEIGHT - UI_PANEL_HEIGHT - 20, y))
             self.points.append(Point(x, y))
         
         # Second moon (lower)
@@ -465,7 +661,7 @@ class KMeansGame:
             x = WIDTH // 2 + 150 + radius * math.cos(angle)
             y = HEIGHT // 2 + 50 + radius * math.sin(angle)
             x = max(80, min(WIDTH - 80, x))
-            y = max(80, min(HEIGHT - 140, y))
+            y = max(TOP_MARGIN, min(HEIGHT - UI_PANEL_HEIGHT - 20, y))
             self.points.append(Point(x, y))
         
         self.dataset_type = "moons"
@@ -482,7 +678,7 @@ class KMeansGame:
             x = center_x + radius * math.cos(angle)
             y = center_y + radius * math.sin(angle)
             x = max(80, min(WIDTH - 80, x))
-            y = max(80, min(HEIGHT - 140, y))
+            y = max(TOP_MARGIN, min(HEIGHT - UI_PANEL_HEIGHT - 20, y))
             self.points.append(Point(x, y))
         
         # Outer circle
@@ -492,7 +688,7 @@ class KMeansGame:
             x = center_x + radius * math.cos(angle)
             y = center_y + radius * math.sin(angle)
             x = max(80, min(WIDTH - 80, x))
-            y = max(80, min(HEIGHT - 140, y))
+            y = max(TOP_MARGIN, min(HEIGHT - UI_PANEL_HEIGHT - 20, y))
             self.points.append(Point(x, y))
         
         self.dataset_type = "circles"
@@ -501,7 +697,7 @@ class KMeansGame:
         self.centroids = []
         for i in range(self.k):
             x = random.randint(80, WIDTH - 80)
-            y = random.randint(80, HEIGHT - 140)
+            y = random.randint(TOP_MARGIN, HEIGHT - UI_PANEL_HEIGHT - 20)
             self.centroids.append(Centroid(x, y, COLORS[i % len(COLORS)]))
         self.iteration_count = 0
         self.converged = False
@@ -932,7 +1128,7 @@ class KMeansGame:
 
     def draw_battle_view(self):
         """Draw split-screen comparison between algorithm A and B."""
-        view_h = HEIGHT - 120
+        view_h = HEIGHT - UI_PANEL_HEIGHT
         half = WIDTH // 2
         x_scale = 0.5
 
@@ -959,7 +1155,7 @@ class KMeansGame:
         else:
             # Voronoi / decision regions (cached)
             if self.show_voronoi:
-                view_h = HEIGHT - 120
+                view_h = HEIGHT - UI_PANEL_HEIGHT
                 v = self._get_voronoi_surface(self.centroids, self._voronoi_cache_a, WIDTH, view_h, x_scale=1.0)
                 if v is not None:
                     self.screen.blit(v, (0, 0))
@@ -1034,7 +1230,7 @@ class KMeansGame:
             self.draw_stats_panel()
         
         # Draw main UI panel
-        panel_rect = pygame.Rect(0, HEIGHT - 120, WIDTH, 120)
+        panel_rect = pygame.Rect(0, HEIGHT - UI_PANEL_HEIGHT, WIDTH, UI_PANEL_HEIGHT)
         pygame.draw.rect(self.screen, UI_BG, panel_rect)
         pygame.draw.rect(self.screen, COLORS[0], panel_rect, 2)
         
@@ -1042,7 +1238,7 @@ class KMeansGame:
         status_text = "CONVERGED ✓" if self.converged else ("AUTO" if self.auto_iterate else "PAUSED")
         status_color = COLORS[1] if self.converged else (COLORS[2] if self.auto_iterate else TEXT_COLOR)
         status = self.font.render(status_text, True, status_color)
-        self.screen.blit(status, (WIDTH - 180, HEIGHT - 105))
+        self.screen.blit(status, (WIDTH - 220, HEIGHT - UI_PANEL_HEIGHT + 20))
         
         # Draw controls
         controls = [
@@ -1067,54 +1263,119 @@ class KMeansGame:
         """Main menu scene: choose algorithm/dataset/points/K and start."""
         self.screen.fill(BG_COLOR)
 
-        title = self.font.render("Data Mining Mini-Project", True, COLORS[1])
-        subtitle = self.small_font.render("Clustering Visualizer", True, TEXT_COLOR)
-        self.screen.blit(title, (20, 20))
-        self.screen.blit(subtitle, (20, 55))
+        # Ensure preview is available
+        if self._menu_preview_cache_key is None:
+            self._regen_menu_preview()
 
-        # Menu items
-        algo_label = "K-Means" if self.menu_algorithm == "kmeans" else "K-Medoids"
-        if self.menu_dataset == "csv":
-            dataset_label = "CSV (loaded)" if self.csv_points else "CSV (none)"
-        else:
-            dataset_label = self.menu_dataset.capitalize()
-        items = [
-            ("Algorithm", algo_label),
-            ("Dataset", dataset_label),
-            ("Points", str(self.menu_points)),
-            ("K (clusters)", str(self.menu_k)),
-            ("Start", "ENTER"),
-            ("Import CSV", "ENTER"),
-            ("Export CSV", "ENTER"),
-            ("Quit", "ESC"),
-        ]
+        title = self.menu_title_font.render("Clustering Lab", True, COLORS[1])
+        subtitle = self.menu_section_font.render("Choose settings then press ENTER to start", True, TEXT_COLOR)
+        self.screen.blit(title, (24, 18))
+        self.screen.blit(subtitle, (24, 62))
 
-        box = pygame.Rect(20, 95, WIDTH - 40, 360)
-        pygame.draw.rect(self.screen, UI_BG, box, border_radius=12)
-        pygame.draw.rect(self.screen, COLORS[3], box, 2, border_radius=12)
+        items = self._menu_get_items()
+        self.menu_index = max(0, min(self.menu_index, len(items) - 1))
 
-        y = box.y + 18
-        for idx, (k, v) in enumerate(items):
+        # Layout: left settings panel, right preview panel, bottom help
+        top_y = 110
+        bottom_h = 120
+        content_h = HEIGHT - bottom_h - top_y - 10
+
+        left_w = 420
+        left = pygame.Rect(20, top_y, left_w, content_h)
+        right = pygame.Rect(left.right + 15, top_y, WIDTH - (left.right + 15) - 20, content_h)
+
+        pygame.draw.rect(self.screen, UI_BG, left, border_radius=14)
+        pygame.draw.rect(self.screen, COLORS[3], left, 2, border_radius=14)
+        pygame.draw.rect(self.screen, UI_BG, right, border_radius=14)
+        pygame.draw.rect(self.screen, COLORS[2], right, 2, border_radius=14)
+
+        # Settings section title
+        s_title = self.menu_section_font.render("Settings", True, TEXT_COLOR)
+        self.screen.blit(s_title, (left.x + 16, left.y + 12))
+
+        # Render items + remember row rects for mouse
+        row_y = left.y + 52
+        row_h = 38
+        self._menu_layout_cache = {"left": left, "right": right, "rows": []}
+
+        for idx, it in enumerate(items):
             selected = (idx == self.menu_index)
-            color = COLORS[2] if selected else TEXT_COLOR
-            left = self.small_font.render(f"{k}:", True, color)
-            right = self.small_font.render(v, True, COLORS[1] if selected else TEXT_COLOR)
-            self.screen.blit(left, (box.x + 18, y))
-            self.screen.blit(right, (box.x + 220, y))
-            if selected:
-                pygame.draw.rect(self.screen, (*COLORS[2],), (box.x + 10, y - 4, box.width - 20, 28), 1, border_radius=6)
-            y += 40
+            row_rect = pygame.Rect(left.x + 10, row_y - 4, left.w - 20, row_h)
+            self._menu_layout_cache["rows"].append((row_rect, it["key"]))
 
-        help_lines = [
-            "UP/DOWN: select   LEFT/RIGHT: change value",
-            "ENTER: activate   ESC: quit   M: open menu from inside the game",
-            "Quick keys: 1-4 dataset, 5/6 algorithm, I: import CSV, O: export CSV",
-        ]
-        y2 = HEIGHT - 105
-        for line in help_lines:
-            s = self.small_font.render(line, True, TEXT_COLOR)
-            self.screen.blit(s, (20, y2))
-            y2 += 28
+            if selected:
+                pygame.draw.rect(self.screen, (70, 90, 130), row_rect, border_radius=10)
+                pygame.draw.rect(self.screen, COLORS[1], row_rect, 2, border_radius=10)
+
+            label = it["label"]
+            value_text = ""
+            if it["type"] == "choice":
+                # Find display label
+                for v, disp in it["choices"]:
+                    if v == it["value"]:
+                        value_text = disp
+                        break
+            elif it["type"] == "int":
+                value_text = str(it["value"])
+            elif it["type"] == "bool":
+                value_text = "On" if it["value"] else "Off"
+            elif it["type"] == "action":
+                value_text = "ENTER"
+
+            label_s = self.menu_item_font.render(label, True, TEXT_COLOR if not selected else WHITE)
+            value_s = self.menu_item_font.render(value_text, True, COLORS[1] if selected else TEXT_COLOR)
+            self.screen.blit(label_s, (row_rect.x + 12, row_rect.y + 8))
+            self.screen.blit(value_s, (row_rect.right - value_s.get_width() - 12, row_rect.y + 8))
+
+            row_y += row_h + 6
+
+        # Preview panel
+        p_title = self.menu_section_font.render("Preview", True, TEXT_COLOR)
+        self.screen.blit(p_title, (right.x + 16, right.y + 12))
+
+        preview_rect = pygame.Rect(right.x + 14, right.y + 50, right.w - 28, right.h - 64)
+        pygame.draw.rect(self.screen, (28, 28, 38), preview_rect, border_radius=12)
+        pygame.draw.rect(self.screen, (70, 70, 95), preview_rect, 2, border_radius=12)
+
+        # Plot preview points scaled into preview_rect
+        if self.menu_dataset == "csv" and not self.csv_points:
+            msg = self.menu_item_font.render("No CSV loaded. Press I or select Import CSV.", True, COLORS[0])
+            self.screen.blit(msg, (preview_rect.x + 12, preview_rect.y + 12))
+        else:
+            xy = self._menu_preview_xy
+            if xy:
+                xs = [p[0] for p in xy]
+                ys = [p[1] for p in xy]
+                min_x, max_x = min(xs), max(xs)
+                min_y, max_y = min(ys), max(ys)
+                dx = max_x - min_x if max_x != min_x else 1
+                dy = max_y - min_y if max_y != min_y else 1
+
+                for x, y in xy:
+                    px = preview_rect.x + 10 + int(((x - min_x) / dx) * (preview_rect.w - 20))
+                    py = preview_rect.y + 10 + int(((y - min_y) / dy) * (preview_rect.h - 20))
+                    pygame.draw.circle(self.screen, (180, 180, 195), (px, py), 2)
+
+        # Bottom help + description
+        help_box = pygame.Rect(20, HEIGHT - bottom_h, WIDTH - 40, bottom_h - 10)
+        pygame.draw.rect(self.screen, UI_BG, help_box, border_radius=14)
+        pygame.draw.rect(self.screen, COLORS[0], help_box, 2, border_radius=14)
+
+        # Description of selected item
+        hint = items[self.menu_index].get("hint", "")
+        hint_s = self.menu_hint_font.render(hint, True, TEXT_COLOR)
+        self.screen.blit(hint_s, (help_box.x + 16, help_box.y + 12))
+
+        # Controls
+        line1 = "UP/DOWN: select   LEFT/RIGHT: change   ENTER: activate/start   ESC: quit"
+        line2 = "Quick: 1-4 dataset  5/6 algorithm  B battle  V Voronoi  I import CSV  O export CSV"
+        self.screen.blit(self.menu_hint_font.render(line1, True, TEXT_COLOR), (help_box.x + 16, help_box.y + 44))
+        self.screen.blit(self.menu_hint_font.render(line2, True, TEXT_COLOR), (help_box.x + 16, help_box.y + 70))
+
+        # Status message (toast)
+        if self.menu_message and pygame.time.get_ticks() < self.menu_message_until:
+            toast = self.menu_hint_font.render(self.menu_message, True, COLORS[1])
+            self.screen.blit(toast, (WIDTH - toast.get_width() - 24, 24))
     
     def draw_debug_panel(self):
         """Draw debug information panel"""
@@ -1168,7 +1429,7 @@ class KMeansGame:
         panel_height = num_lines * line_height + padding
         
         # Ensure minimum height and maximum height (to prevent going off screen)
-        panel_height = max(150, min(panel_height, HEIGHT - 140))  # Leave space for bottom UI
+        panel_height = max(150, min(panel_height, HEIGHT - (UI_PANEL_HEIGHT + 20)))  # Leave space for bottom UI
         
         # Semi-transparent background
         s = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
@@ -1299,7 +1560,7 @@ class KMeansGame:
             return
         
         panel_width = 280
-        panel_height = 200
+        panel_height = 240
         panel_x = WIDTH - panel_width - 10
         panel_y = HEIGHT - panel_height - 130
         
@@ -1371,7 +1632,7 @@ class KMeansGame:
         """Draw advanced statistics panel"""
         panel_width = 250
         panel_x = 10
-        panel_y = HEIGHT - 350
+        panel_y = HEIGHT - (UI_PANEL_HEIGHT + 220)
         
         metrics = self.calculate_cluster_metrics()
         inertia = self.calculate_inertia()
@@ -1509,78 +1770,117 @@ class KMeansGame:
             self.particles_b = [p for p in self.particles_b if p.particles]
     
     def handle_menu_event(self, event):
-        if event.type != pygame.KEYDOWN:
+        items = self._menu_get_items()
+        self.menu_index = max(0, min(self.menu_index, len(items) - 1))
+
+        # Mouse: click to select/activate
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self._menu_layout_cache and "rows" in self._menu_layout_cache:
+                mx, my = pygame.mouse.get_pos()
+                for rect, key in self._menu_layout_cache["rows"]:
+                    if rect.collidepoint(mx, my):
+                        # Select row
+                        for i, it in enumerate(items):
+                            if it["key"] == key:
+                                self.menu_index = i
+                                break
+                        # If action, activate immediately
+                        if key in ("start", "import", "export", "quit"):
+                            event = pygame.event.Event(pygame.KEYDOWN, {"key": pygame.K_RETURN})
+                            self.handle_menu_event(event)
+                        return
             return
 
-        items_count = 8  # Algorithm, Dataset, Points, K, Start, Import, Export, Quit
+        if event.type != pygame.KEYDOWN:
+            return
 
         if event.key == pygame.K_ESCAPE:
             self.running = False
             return
 
         if event.key == pygame.K_UP:
-            self.menu_index = (self.menu_index - 1) % items_count
+            self.menu_index = (self.menu_index - 1) % len(items)
             return
         if event.key == pygame.K_DOWN:
-            self.menu_index = (self.menu_index + 1) % items_count
+            self.menu_index = (self.menu_index + 1) % len(items)
             return
 
-        # Quick keys (work anywhere in menu)
+        # Quick keys (accessible shortcuts)
         if event.key == pygame.K_5:
-            self.menu_algorithm = "kmeans"
+            self._menu_apply_item_value("algorithm", "kmeans")
             return
         if event.key == pygame.K_6:
-            self.menu_algorithm = "kmedoids"
+            self._menu_apply_item_value("algorithm", "kmedoids")
+            return
+        if event.key == pygame.K_b:
+            self._menu_apply_item_value("start_mode", "battle" if self.menu_start_mode != "battle" else "single")
+            return
+        if event.key == pygame.K_v:
+            self._menu_apply_item_value("voronoi", not self.menu_voronoi)
             return
         if event.key == pygame.K_1:
-            self.menu_dataset = "blobs"
+            self._menu_apply_item_value("dataset", "blobs")
             return
         if event.key == pygame.K_2:
-            self.menu_dataset = "moons"
+            self._menu_apply_item_value("dataset", "moons")
             return
         if event.key == pygame.K_3:
-            self.menu_dataset = "circles"
+            self._menu_apply_item_value("dataset", "circles")
             return
         if event.key == pygame.K_4:
-            self.menu_dataset = "random"
+            self._menu_apply_item_value("dataset", "random")
             return
         if event.key == pygame.K_i:
-            self.import_points_from_csv(stay_in_menu=True)
-            self.menu_dataset = "csv"
+            ok = self.import_points_from_csv(stay_in_menu=True)
+            if ok:
+                self._menu_apply_item_value("dataset", "csv")
+                self._set_menu_message("CSV loaded.")
+            else:
+                self._set_menu_message("CSV import cancelled or invalid.")
             return
         if event.key == pygame.K_o:
             self.export_points_to_csv()
+            self._set_menu_message("Exported CSV.")
             return
+
+        current = items[self.menu_index]
 
         if event.key == pygame.K_RETURN:
-            if self.menu_index == 4:  # Start
-                self._apply_menu_settings_and_start()
-            elif self.menu_index == 5:  # Import CSV
-                self.import_points_from_csv(stay_in_menu=True)
-                self.menu_dataset = "csv"
-            elif self.menu_index == 6:  # Export CSV
-                self.export_points_to_csv()
-            elif self.menu_index == 7:  # Quit
-                self.running = False
+            if current["type"] == "action":
+                if current["key"] == "start":
+                    if self.menu_dataset == "csv" and not self.csv_points:
+                        self._set_menu_message("No CSV loaded. Import first (I).")
+                        return
+                    self._apply_menu_settings_and_start()
+                elif current["key"] == "import":
+                    ok = self.import_points_from_csv(stay_in_menu=True)
+                    if ok:
+                        self._menu_apply_item_value("dataset", "csv")
+                        self._set_menu_message("CSV loaded.")
+                    else:
+                        self._set_menu_message("CSV import cancelled or invalid.")
+                elif current["key"] == "export":
+                    self.export_points_to_csv()
+                    self._set_menu_message("Exported CSV.")
+                elif current["key"] == "quit":
+                    self.running = False
             return
 
-        # LEFT/RIGHT adjust selected values
+        # LEFT/RIGHT adjust values
         if event.key in (pygame.K_LEFT, pygame.K_RIGHT):
             delta = -1 if event.key == pygame.K_LEFT else 1
-
-            if self.menu_index == 0:  # Algorithm
-                self.menu_algorithm = "kmedoids" if self.menu_algorithm == "kmeans" else "kmeans"
-            elif self.menu_index == 1:  # Dataset
-                order = ["random", "blobs", "moons", "circles", "csv"]
-                i = order.index(self.menu_dataset) if self.menu_dataset in order else 0
-                self.menu_dataset = order[(i + delta) % len(order)]
-            elif self.menu_index == 2:  # Points
-                self.menu_points = max(1, min(500, self.menu_points + (10 * delta)))
-            elif self.menu_index == 3:  # K
-                self.menu_k = max(1, min(10, self.menu_k + delta))
-            elif self.menu_index == 7:  # Quit
-                if delta != 0:
-                    self.running = False
+            if current["type"] == "choice":
+                choices = [c[0] for c in current["choices"]]
+                i = choices.index(current["value"]) if current["value"] in choices else 0
+                new_val = choices[(i + delta) % len(choices)]
+                self._menu_apply_item_value(current["key"], new_val)
+            elif current["type"] == "int":
+                step = int(current.get("step", 1))
+                new_val = int(current["value"]) + (step * delta)
+                new_val = max(int(current.get("min", new_val)), min(int(current.get("max", new_val)), new_val))
+                self._menu_apply_item_value(current["key"], new_val)
+            elif current["type"] == "bool":
+                self._menu_apply_item_value(current["key"], not bool(current["value"]))
 
     def handle_game_event(self, event):
         if event.type == pygame.KEYDOWN:
@@ -1690,7 +1990,7 @@ class KMeansGame:
             mx, my = pygame.mouse.get_pos()
 
             if event.button == 1:  # Left click - add point
-                if my < HEIGHT - 120:
+                if my < HEIGHT - UI_PANEL_HEIGHT:
                     if self.battle_mode:
                         half = WIDTH // 2
                         if mx < half:
