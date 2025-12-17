@@ -141,6 +141,45 @@ Output: `dist/KmeansGame.exe`
 - The game uses **Tkinter file dialogs** for CSV import/export; in the EXE build the dialogs will open in your current folder (better UX).
 - If Windows Defender flags the EXE, prefer the **one-folder** build (it’s usually less problematic than one-file).
 
+## 🧰 Build a Windows Installer (Setup.exe)
+
+If you want a real installer for GitHub Releases (Start Menu shortcut + optional Desktop shortcut + uninstaller), use **Inno Setup**.
+
+### Install Inno Setup
+
+- Option 1: installer from the official Inno Setup website
+- Option 2 (recommended): Chocolatey
+
+```powershell
+choco install innosetup -y
+```
+
+### Build installer (uses your icon + publisher)
+
+```bat
+build_exe.bat installer
+```
+
+Output:
+- `dist-installer/KmeansGame-Setup-<version>.exe`
+
+Details:
+- **Publisher**: Nour Ltaief
+- **Icon**: `Assets/logo.png` converted to `.ico` during build
+
+### GitHub Actions (automatic Release uploads)
+
+This repo includes a workflow that builds the EXE + installer automatically when you push a version tag:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow will attach these files to the GitHub Release:
+- `dist-installer/KmeansGame-Setup-<version>.exe`
+- `dist/KmeansGame/KmeansGame.exe`
+
 ## 🎮 Controls & Usage
 
 ### Keyboard Controls
