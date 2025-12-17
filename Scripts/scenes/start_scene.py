@@ -442,14 +442,31 @@ class StartScene:
         bottom_limit = panel.bottom - 54
         mx, my = pygame.mouse.get_pos()
 
-        for k, v in lines:
+        # Nice readable accent colors for labels/values
+        label_accents = [
+            config.COLORS[2 % len(config.COLORS)],
+            config.COLORS[3 % len(config.COLORS)],
+            config.COLORS[4 % len(config.COLORS)],
+            config.COLORS[1 % len(config.COLORS)],
+            config.COLORS[0],
+        ]
+        value_accents = [
+            config.COLORS[0],
+            config.COLORS[3 % len(config.COLORS)],
+            config.COLORS[2 % len(config.COLORS)],
+            config.TEXT_COLOR,
+            config.TEXT_COLOR,
+        ]
+
+        for idx, (k, v) in enumerate(lines):
             if y > bottom_limit:
                 break
 
             key_font = hint if hint.size(k.upper())[0] <= max_w else pygame.font.Font(None, 20)
             val_font = font if font.size(v)[0] <= max_w else pygame.font.Font(None, 22)
 
-            key_s = key_font.render(k.upper(), True, (190, 190, 205))
+            key_col = label_accents[idx % len(label_accents)]
+            key_s = key_font.render(k.upper(), True, key_col)
             screen.blit(key_s, (left_x, y))
             y += key_s.get_height() + 4
 
@@ -470,7 +487,8 @@ class StartScene:
                     pygame.draw.line(screen, col, (rect.x, uy), (rect.x + rect.w, uy), 1)
                     self._credit_link_rects.append((rect, v))
                 else:
-                    val_s = val_font.render(line, True, config.TEXT_COLOR)
+                    val_col = value_accents[idx % len(value_accents)]
+                    val_s = val_font.render(line, True, val_col)
                     screen.blit(val_s, (left_x, y))
                 y += val_s.get_height() + 2
             y += 10
