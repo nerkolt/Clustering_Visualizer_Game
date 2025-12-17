@@ -175,6 +175,8 @@ The workflow will attach these files to the GitHub Release:
 - `dist-installer/ClusteringVisualizerGame-Setup-<version>.exe`
 - `dist/ClusteringVisualizerGame/ClusteringVisualizerGame.exe`
 
+![Workflow Video : ](Assets/Videos/Workflow.mp4)
+
 <a id="controls"></a>
 ## Controls & Usage
 
@@ -368,6 +370,9 @@ Kmeans_Game/
 ├── requirements.txt                  # Python dependencies
 ├── README.md                         # This file
 ```
+<a id="demo"></a>
+## Demo
+Check Full [Demo](https://www.youtube.com/watch?v=BRvdO-Si3_c) :
 
 <a id="bibliography"></a>
 ## Bibliography / Research
