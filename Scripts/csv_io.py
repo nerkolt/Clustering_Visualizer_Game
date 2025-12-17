@@ -1,6 +1,7 @@
 import csv
 import os
 import time
+import sys
 
 
 def project_root(script_file):
@@ -10,6 +11,14 @@ def project_root(script_file):
     Historically the entry script lived in `Scripts/`, but in the modular version
     some callers live in `Scripts/scenes/`. We handle both cases.
     """
+    # In a frozen build (PyInstaller), __file__ points inside the bundled app/temp
+    # directory. For a better UX, default file dialogs to the current working dir.
+    if getattr(sys, "frozen", False):
+        try:
+            return os.getcwd()
+        except Exception:
+            return os.path.expanduser("~")
+
     here = os.path.abspath(os.path.dirname(script_file))
     base = os.path.basename(here).lower()
     if base == "scenes":

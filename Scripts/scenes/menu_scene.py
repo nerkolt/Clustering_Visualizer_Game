@@ -393,8 +393,8 @@ class MenuScene:
 
         # Bottom help
         help_lines = [
-            "UP/DOWN select | LEFT/RIGHT change | ENTER activate | ESC quit",
-            "Shortcuts: 1-4 dataset | 5/6/7 algorithm | B battle | V voronoi | T learning | I import | O export",
+            "NAV: [UP/DOWN] Select   [LEFT/RIGHT] Change   [ENTER] Activate   [ESC] Quit",
+            "QUICK: [1-4] Dataset   [5-7] Algorithm   [B] Battle   [V] Voronoi   [T] Tutorial   [I/O] CSV",
         ]
 
         def wrap(font, text, max_w):

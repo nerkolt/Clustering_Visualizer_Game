@@ -114,6 +114,33 @@ python Kmeans_Game_Debug.py
 
 **Note:** The main file is `Kmeans_Game_Debug.py` which includes all the latest features and optimizations.
 
+## 📦 Build a Windows EXE (Release)
+
+You can create a standalone Windows build using **PyInstaller**.
+
+### Option A (recommended): one-folder build
+
+From the project root:
+
+```bash
+build_exe.bat onedir
+```
+
+Output: `dist/KmeansGame/KmeansGame.exe`
+
+### Option B: single-file build
+
+```bash
+build_exe.bat onefile
+```
+
+Output: `dist/KmeansGame.exe`
+
+### Notes / troubleshooting
+
+- The game uses **Tkinter file dialogs** for CSV import/export; in the EXE build the dialogs will open in your current folder (better UX).
+- If Windows Defender flags the EXE, prefer the **one-folder** build (it’s usually less problematic than one-file).
+
 ## 🎮 Controls & Usage
 
 ### Keyboard Controls

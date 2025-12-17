@@ -341,7 +341,7 @@ class GameScene:
         y = 10
 
         title = "LEARNING MODE"
-        hint = "T: toggle  |  TAB: next page  |  SHIFT+TAB: prev page"
+        hint = "Keys: [T] toggle  |  [TAB] next page  |  [SHIFT+TAB] prev page"
 
         page = self.tutorial_page % 3
         if page == 0:
@@ -1291,10 +1291,12 @@ class GameScene:
                 lines.append(cur)
             return lines
 
+        # Keybinds (clear + scannable)
         controls_left = [
-            "SPACE Step | A Auto | R Reset | D Debug | C Clear | M Menu",
-            "S Stats | G Graph | E Elbow | V Voronoi | B Battle | I Import | O Export",
-            "1-4 Datasets | 5 K-Means | 6 K-Medoids | 7 DBSCAN | LeftClick Add | RightClick Move centroid",
+            "CORE: [SPACE] Step  [A] Auto  [R] Reset  [M] Menu  [D] Debug  [C] Clear",
+            "DATASETS: [1] Blobs  [2] Moons  [3] Circles  [4] Random",
+            "ALGO: [5] K-Means  [6] K-Medoids  [7] DBSCAN   VIEW: [V] Voronoi  [B] Battle  [T] Tutorial",
+            "ANALYSIS: [G] Graph  [S] Stats  [E] Elbow   CSV: [I] Import  [O] Export   MOUSE: L-Click add  R-Click move",
         ]
 
         left_lines = []
