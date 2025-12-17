@@ -1,15 +1,32 @@
-# K-Means Clustering Visualizer 🎮
+# Clustering Visualizer Game (K‑Means / K‑Medoids / DBSCAN) 🎮
 
-An interactive, visually stunning Python application that brings the K-Means clustering algorithm to life! Watch data points dynamically form clusters with smooth animations, particle effects, and real-time visualizations.
+An interactive, visually stunning Python application that brings clustering algorithms to life! Watch data points dynamically form clusters with smooth animations, particle effects, and real-time visualizations.
 
 Perfect for:
-- 🎓 Learning how K-Means clustering works
+- 🎓 Learning how clustering works (K‑Means / K‑Medoids / DBSCAN)
 - 🧪 Experimenting with different datasets and parameters
 - 🎨 Enjoying beautiful data visualizations
 - 📊 Understanding machine learning concepts visually
 
 ![K-Means Game](Assets/Start.png)
 
+<a id="toc"></a>
+## 📑 Table of Contents
+
+- [✨ Features](#features)
+- [📋 Requirements](#requirements)
+- [🚀 Installation](#installation)
+- [🎯 How to Run](#how-to-run)
+- [📦 Build a Windows EXE (Release)](#build-windows-exe)
+- [🧰 Build a Windows Installer (Setup.exe)](#build-windows-installer)
+- [🎮 Controls & Usage](#controls)
+- [🔧 Debug Panel](#debug-panel)
+- [📊 Data Mining Features](#data-mining-features)
+- [📁 Project Structure](#project-structure)
+- [🐛 Troubleshooting](#troubleshooting)
+- [🎨 Customization](#customization)
+
+<a id="features"></a>
 ## ✨ Features
 
 ### 🎬 Smooth Animations
@@ -51,11 +68,13 @@ Perfect for:
 - **Advanced Statistics**: Detailed cluster quality metrics (compactness, separation, variance)
 - **Cluster Quality Metrics**: Per-cluster analysis with color-coded visualization
 
+<a id="requirements"></a>
 ## 📋 Requirements
 
-- **Python 3.7+**
+- **Python 3.10+** (recommended; tested on modern Windows Python)
 - **Pygame** (for graphics and interaction)
 
+<a id="installation"></a>
 ## 🚀 Installation
 
 ### Step 1: Clone or Download the Repository
@@ -99,6 +118,7 @@ python --version
 python -c "import pygame; print(pygame.version.ver)"
 ```
 
+<a id="how-to-run"></a>
 ## 🎯 How to Run
 
 Navigate to the project directory and run the main script:
@@ -112,8 +132,9 @@ cd Scripts
 python Kmeans_Game_Debug.py
 ```
 
-**Note:** The main file is `Kmeans_Game_Debug.py` which includes all the latest features and optimizations.
+**Note:** `Scripts/Kmeans_Game_Debug.py` is the entry point. Most logic lives in the modular files under `Scripts/` (algorithms, scenes, datasets, rendering, CSV I/O).
 
+<a id="build-windows-exe"></a>
 ## 📦 Build a Windows EXE (Release)
 
 You can create a standalone Windows build using **PyInstaller**.
@@ -141,6 +162,7 @@ Output: `dist/KmeansGame.exe`
 - The game uses **Tkinter file dialogs** for CSV import/export; in the EXE build the dialogs will open in your current folder (better UX).
 - If Windows Defender flags the EXE, prefer the **one-folder** build (it’s usually less problematic than one-file).
 
+<a id="build-windows-installer"></a>
 ## 🧰 Build a Windows Installer (Setup.exe)
 
 If you want a real installer for GitHub Releases (Start Menu shortcut + optional Desktop shortcut + uninstaller), use **Inno Setup**.
@@ -180,6 +202,7 @@ The workflow will attach these files to the GitHub Release:
 - `dist-installer/KmeansGame-Setup-<version>.exe`
 - `dist/KmeansGame/KmeansGame.exe`
 
+<a id="controls"></a>
 ## 🎮 Controls & Usage
 
 ### Keyboard Controls
@@ -236,6 +259,7 @@ When you press `P` or `K`:
 
 **Example:** Press `P`, type `200`, hit `ENTER` → instantly generate 200 random points!
 
+<a id="debug-panel"></a>
 ## 🔧 Debug Panel
 
 Press `D` to toggle the debug overlay (top-right corner). It displays:
@@ -253,6 +277,7 @@ Press `D` to toggle the debug overlay (top-right corner). It displays:
 
 The panel automatically resizes based on the number of clusters!
 
+<a id="data-mining-features"></a>
 ## 📊 Data Mining Features
 
 ### Inertia (WCSS) Metric
@@ -321,40 +346,58 @@ For each cluster (color-coded):
 - Analyze cluster compactness and separation
 - Validate clustering results
 
+<a id="project-structure"></a>
 ## 📁 Project Structure
 
 ```
 Kmeans_Game/
 │
 ├── Scripts/
-│   ├── Kmeans_Game_Debug.py      # Main file (recommended - includes all features)
-│   ├── Kmeans_Game.py            # Basic version
-│   └── Kmeans_Game_Optimization.py  # Optimized version
+│   ├── Kmeans_Game_Debug.py          # Entry point (launches the app)
+│   ├── app.py                        # Game loop + scene management
+│   ├── config.py                     # Window + UI layout + colors
+│   ├── algorithms.py                 # K-Means / K-Medoids / DBSCAN logic
+│   ├── datasets.py                   # Random/Blobs/Moons/Circles generators
+│   ├── entities.py                   # Point/Centroid/ParticleEffect classes
+│   ├── voronoi.py                    # Voronoi/decision region rendering
+│   ├── csv_io.py                     # CSV import/export + file dialogs
+│   ├── scenes/
+│   │   ├── menu_scene.py             # Main menu UI
+│   │   └── game_scene.py             # Main game view + overlays
+│   └── Kmeans_Game_Debug_legacy.py   # Old monolithic version (reference only)
 │
-├── Assets/
-│   ├── Start.png                 # Screenshot
-│   ├── Auto Mode.png             # Screenshot
-│   └── 50Points.png              # Screenshot
+├── Assets/                           # README screenshots + app logo
+│   ├── logo.png
+│   ├── Start.png
+│   ├── Auto Mode.png
+│   └── 50Points.png
 │
-├── README.md                     # This file
-├── Tutorial.md                   # Detailed tutorial
-└── Visualisation.md              # Visualization guide
+├── tools/
+│   └── make_icon.py                  # Converts Assets/logo.png -> build/logo.ico
+├── installer.iss                     # Inno Setup installer script (publisher + icon)
+├── build_exe.bat                     # Windows build helper (PyInstaller + installer)
+├── build_exe.ps1                     # PowerShell build helper
+├── requirements.txt                  # Python dependencies
+├── README.md                         # This file
+├── Tutorial.md                       # Detailed tutorial/controls
+└── Visualisation.md                  # Visualization guide
 ```
 
 ## ✅ Mini‑project checklist (3DNI Data Mining)
 
-This repository is structured to satisfy the mini‑project constraints in [`file://Enoncé Mini Projet 3DNI.pdf`](file://Enoncé%20Mini%20Projet%203DNI.pdf):
+This repository is structured to satisfy typical mini‑project constraints (algorithm + visualization + report/demo). Your course PDF/statement is not included in this repo.
 
 - **At least one data mining algorithm**: K‑Means clustering (+ inertia/WCSS, elbow method, convergence graph).
 - **Clear README**: install, dependencies, commands, usage, screenshots.
 - **Original work**: interactive “game” visualization + added analysis tools (datasets, metrics, elbow method).
 
-What is **not** part of the repo (submission step):
-- **Email submission**: send group names/class + project title + GitHub link to `yassine-net@hotmail.fr` before the deadline.
+Submission note: follow your instructor’s submission instructions (email / LMS / GitHub link), since requirements vary by class.
 
-## 🎓 Understanding K-Means
+## 🎓 Understanding the Algorithms
 
-The K-Means algorithm works in two main steps:
+### K‑Means (hard clustering)
+
+K‑Means works in two main steps:
 
 1. **Assignment**: Each point is assigned to the nearest centroid (based on Euclidean distance)
 2. **Update**: Centroids move to the mean position of all points in their cluster
@@ -363,12 +406,24 @@ These steps repeat until:
 - No points change clusters (convergence), or
 - Maximum iterations are reached
 
-**Watch the algorithm in action:**
+**Watch it in action:**
 - Points change color when reassigned to a different cluster
 - Centroids smoothly move to the center of their clusters
 - The algorithm converges when no more changes occur
 
-### Key Concepts
+### K‑Medoids (robust alternative)
+
+K‑Medoids is similar to K‑Means, but uses **medoids** (actual data points) instead of the mean. It is often more robust to outliers.
+
+### DBSCAN (density-based)
+
+DBSCAN groups points by density using:
+- `eps`: neighborhood radius (pixels)
+- `min_samples`: points needed to form a dense region
+
+Points that don’t belong to any dense region are labeled as **noise/outliers** (`-1`).
+
+### Key Concepts (used throughout the app)
 
 **Inertia (WCSS)**: Measures cluster quality by summing squared distances from points to their centroids. Lower inertia = tighter, better clusters.
 
@@ -378,6 +433,7 @@ These steps repeat until:
 
 **Limitations**: K-Means assumes clusters are spherical and similar in size. Try the Moons (`2`) or Circles (`3`) datasets to see where it struggles.
 
+<a id="troubleshooting"></a>
 ## 🐛 Troubleshooting
 
 ### Common Issues
@@ -406,14 +462,21 @@ python3 Scripts/Kmeans_Game_Debug.py
 - Check for error messages in the terminal
 - Verify pygame is installed correctly: `python -c "import pygame"`
 
+<a id="customization"></a>
 ## 🎨 Customization
 
-You can easily customize the game by editing `Kmeans_Game_Debug.py`:
+You can easily customize the game in the modular files:
 
-- **Colors**: Modify the `COLORS` array (lines 15-21)
-- **Window Size**: Change `WIDTH` and `HEIGHT` (line 9)
-- **FPS**: Adjust `FPS` constant (line 10)
-- **Animation Speed**: Modify interpolation values in `Point.update()` and `Centroid.update()`
+- **Window size / UI layout / palette**: `Scripts/config.py`
+  - `WIDTH`, `HEIGHT`, `UI_PANEL_HEIGHT`, `COLORS`, `BG_COLOR`, etc.
+- **Algorithms**: `Scripts/algorithms.py`
+  - K‑Means / K‑Medoids / DBSCAN implementation details
+- **Datasets**: `Scripts/datasets.py`
+  - Random spacing, blobs/moons/circles generation
+- **Visuals & overlays**: `Scripts/scenes/game_scene.py` and `Scripts/entities.py`
+  - Connection lines, trails, particles, bottom HUD, tutorial overlay
+- **Menu options**: `Scripts/scenes/menu_scene.py`
+  - What shows up in the menu and the default values
 
 ## 📝 License
 
