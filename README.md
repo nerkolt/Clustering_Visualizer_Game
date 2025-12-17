@@ -23,6 +23,7 @@ Perfect for:
 - [Debug Panel](#debug-panel)
 - [Data Mining Features](#data-mining-features)
 - [Project Structure](#project-structure)
+- [Bibliography / Research](#bibliography)
 - [Troubleshooting](#troubleshooting)
 - [Customization](#customization)
 
@@ -392,6 +393,29 @@ This repository is structured to satisfy typical mini‑project constraints (alg
 - **Original work**: interactive “game” visualization + added analysis tools (datasets, metrics, elbow method).
 
 Submission note: follow your instructor’s submission instructions (email / LMS / GitHub link), since requirements vary by class.
+
+<a id="bibliography"></a>
+## Bibliography / Research
+
+### Research links (used for concepts and implementation details)
+
+- K‑Means clustering: https://en.wikipedia.org/wiki/K-means_clustering
+- K‑Medoids (PAM): https://en.wikipedia.org/wiki/K-medoids
+- DBSCAN: https://en.wikipedia.org/wiki/DBSCAN
+- Voronoi / decision regions: https://en.wikipedia.org/wiki/Voronoi_diagram
+- Elbow method: https://en.wikipedia.org/wiki/Elbow_method_(clustering)
+- Inertia / WCSS: https://en.wikipedia.org/wiki/Within-cluster_sum_of_squares
+- Okabe–Ito colorblind-friendly palette: https://jfly.uni-koeln.de/color/
+- Pygame (rendering/input): https://www.pygame.org/docs/
+- PyInstaller (EXE builds): https://pyinstaller.org/en/stable/
+- Inno Setup (installer): https://jrsoftware.org/isinfo.php
+
+### In-class work (travaux pratiques)
+
+This project builds on the **travaux pratiques** done in class (3DNI1) with **Yassine Net**, including:
+- Running **K‑Means step-by-step** (assign → update → convergence)
+- Interpreting clustering quality via **inertia/WCSS** and **the elbow method**
+- Comparing behavior on different dataset shapes (blobs vs non-linear shapes like moons/circles)
 
 ## 🎓 Understanding the Algorithms
 
