@@ -43,6 +43,28 @@ Adds higher-signal quality indicators:
 Runs multiple clustering trials for \(K=1..10\), then plots **K vs inertia**:
 - The “elbow” (big improvement slows down) suggests a good K choice
 
+### Voronoi / decision regions (`V`)
+
+Shows an approximate **decision map**: each cell is colored by the nearest centroid/medoid.
+- Makes cluster “territories” visible
+- Helps explain why points switch clusters near boundaries
+
+### Battle mode (A/B split screen) (`B`)
+
+Splits the screen into two views on the **same dataset**:
+- **A** uses your selected algorithm
+- **B** uses the other algorithm (K‑Means vs K‑Medoids)
+
+Use it to compare:
+- **Convergence speed** (iterations)
+- **Final inertia**
+- Behavior on non-linear datasets (Moons/Circles)
+
+### CSV import/export (`I` / `O`)
+
+- **Import (`I`)**: load real 2D data from a CSV file with columns `x,y` (header optional)
+- **Export (`O`)**: save `x,y` and cluster labels (in battle mode exports both A and B labels)
+
 ## Why some datasets “break” K‑Means
 
 - **Blobs**: works well because clusters are roughly spherical.

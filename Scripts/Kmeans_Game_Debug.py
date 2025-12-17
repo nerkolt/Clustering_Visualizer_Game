@@ -1,6 +1,9 @@
 import pygame
 import random
 import math
+import csv
+import os
+import time
 
 # Initialize Pygame
 pygame.init()
@@ -164,8 +167,24 @@ class KMeansGame:
         self.dataset_type = "random"  # Current dataset type
         self.elbow_data = []  # Store elbow method results
 
+        # Visual / analysis overlays
+        self.show_voronoi = False
+        self.voronoi_cell_size = 12  # bigger = faster, smaller = smoother
+        self._voronoi_cache_a = {"key": None, "surface": None}
+        self._voronoi_cache_b = {"key": None, "surface": None}
+
         # Algorithm selection
         self.algorithm = "kmeans"  # "kmeans" or "kmedoids"
+        self.algorithm_b = "kmedoids" if self.algorithm == "kmeans" else "kmeans"
+
+        # Battle mode (A/B)
+        self.battle_mode = False
+        self.points_b = []
+        self.centroids_b = []
+        self.particles_b = []
+        self.iteration_count_b = 0
+        self.converged_b = False
+        self.inertia_history_b = []
 
         # K-Medoids settings (keep it interactive; exact PAM can be heavy for 500 pts)
         self.kmedoids_candidate_limit = 25  # sample candidates per cluster when large
@@ -173,9 +192,12 @@ class KMeansGame:
         # Main menu state
         self.menu_index = 0
         self.menu_algorithm = self.algorithm
-        self.menu_dataset = "random"  # random/blobs/moons/circles
+        self.menu_dataset = "random"  # random/blobs/moons/circles/csv
         self.menu_points = 50
         self.menu_k = self.k
+
+        # CSV dataset buffer (loaded points)
+        self.csv_points = []  # list[(x, y)]
         
         # Generate random points
         self.generate_points(50)
@@ -186,14 +208,28 @@ class KMeansGame:
         self.menu_points = len(self.points) if self.points else 50
         self.menu_k = self.k
         self.menu_dataset = self.dataset_type if self.dataset_type else "random"
+        if self.menu_dataset == "csv":
+            # Keep last imported/used CSV points so menu can start with them again
+            self.csv_points = [(p.x, p.y) for p in self.points]
 
     def _apply_menu_settings_and_start(self):
         self.algorithm = self.menu_algorithm
+        self.algorithm_b = "kmedoids" if self.algorithm == "kmeans" else "kmeans"
         self.k = self.menu_k
 
         # Generate dataset using chosen point count
         n = int(self.menu_points)
-        if self.menu_dataset == "blobs":
+        if self.menu_dataset == "csv" and self.csv_points:
+            # Use imported CSV points (sample if needed)
+            xy = list(self.csv_points)
+            if n <= 0:
+                n = len(xy)
+            n = min(n, len(xy))
+            if len(xy) > n:
+                xy = random.sample(xy, n)
+            self._set_points_from_xy_list(xy)
+            self.dataset_type = "csv"
+        elif self.menu_dataset == "blobs":
             self.generate_blobs(n)
         elif self.menu_dataset == "moons":
             self.generate_moons(n)
@@ -210,7 +246,128 @@ class KMeansGame:
         self.show_elbow = False
         self.elbow_data = []
 
+        # Default start: single view (battle can be toggled in-game with B)
+        self.battle_mode = False
+
         self.scene = "game"
+
+    def _set_points_from_xy_list(self, xy_list):
+        """Replace current points with a list of (x, y) pairs."""
+        self.points = []
+        for x, y in xy_list:
+            self.points.append(Point(float(x), float(y)))
+
+    def _project_root(self):
+        # This file lives in Scripts/, so project root is one directory up.
+        return os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+
+    def _ask_open_csv_path(self):
+        """Try to open a native file picker to select a CSV file."""
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            try:
+                root.attributes("-topmost", True)
+            except Exception:
+                pass
+            path = filedialog.askopenfilename(
+                title="Open CSV (x,y)",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+                initialdir=self._project_root(),
+            )
+            root.destroy()
+            return path if path else None
+        except Exception:
+            return None
+
+    def _ask_save_csv_path(self, default_name="points_export.csv"):
+        """Try to open a native file picker to choose an export path."""
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            try:
+                root.attributes("-topmost", True)
+            except Exception:
+                pass
+            path = filedialog.asksaveasfilename(
+                title="Save CSV",
+                defaultextension=".csv",
+                initialfile=default_name,
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
+                initialdir=self._project_root(),
+            )
+            root.destroy()
+            return path if path else None
+        except Exception:
+            return None
+
+    def import_points_from_csv(self, path=None, stay_in_menu=False):
+        """Import points from a CSV file with columns: x,y (header optional)."""
+        if path is None:
+            path = self._ask_open_csv_path()
+        if not path:
+            return False
+
+        xy = []
+        with open(path, "r", newline="", encoding="utf-8-sig") as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if not row or len(row) < 2:
+                    continue
+                try:
+                    x = float(row[0])
+                    y = float(row[1])
+                except ValueError:
+                    # Skip header / non-numeric lines
+                    continue
+                xy.append((x, y))
+
+        if not xy:
+            return False
+
+        self.csv_points = xy
+        self.menu_dataset = "csv"
+        self.menu_points = len(xy)
+
+        if not stay_in_menu:
+            self._set_points_from_xy_list(xy)
+            self.dataset_type = "csv"
+            self._invalidate_voronoi_cache()
+            self.reset_algorithm()
+        return True
+
+    def export_points_to_csv(self, path=None):
+        """Export current points (and cluster labels) to a CSV file."""
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        default_name = f"clustering_export_{timestamp}.csv"
+
+        if path is None:
+            path = self._ask_save_csv_path(default_name=default_name)
+        if not path:
+            # Fallback: save into project root
+            path = os.path.join(self._project_root(), default_name)
+
+        if self.battle_mode and self.points_b:
+            header = ["x", "y", "cluster_a", "cluster_b"]
+            rows = []
+            for pa, pb in zip(self.points, self.points_b):
+                rows.append([pa.x, pa.y, pa.cluster, pb.cluster])
+        else:
+            header = ["x", "y", "cluster"]
+            rows = []
+            for p in self.points:
+                rows.append([p.x, p.y, p.cluster])
+
+        with open(path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+            writer.writerows(rows)
+
+        return True
     
     def _generate_spaced_points(self, n, min_dist=25, max_tries_per_point=200):
         """Generate points with a minimum distance between them."""
@@ -368,6 +525,17 @@ class KMeansGame:
 
     def reset_algorithm(self):
         """Reset the currently selected algorithm state (centroids/medoids + counters)."""
+        # Any reset changes decision regions
+        self._invalidate_voronoi_cache()
+
+        if self.battle_mode:
+            # Keep battle comparable: clone points for B and initialize both sides together.
+            self.algorithm_b = "kmedoids" if self.algorithm == "kmeans" else "kmeans"
+            self.points_b = self._clone_points(self.points)
+            self.particles_b = []
+            self._reset_battle_shared_init()
+            return
+
         if self.algorithm == "kmedoids":
             self.reset_medoids()
         else:
@@ -378,103 +546,179 @@ class KMeansGame:
             point.cluster = None
             point.prev_cluster = None
 
+    def enable_battle_mode(self):
+        """Enable A/B battle mode (A uses selected algorithm, B uses the other)."""
+        self.battle_mode = True
+        # Battle mode draws a scaled view; particles are disabled for clarity/perf
+        self.particles = []
+        self.particles_b = []
+        self.reset_algorithm()
+
+    def disable_battle_mode(self):
+        """Disable A/B battle mode and return to single-view mode."""
+        self.battle_mode = False
+        self.points_b = []
+        self.centroids_b = []
+        self.particles_b = []
+        self.iteration_count_b = 0
+        self.converged_b = False
+        self.inertia_history_b = []
+        self._invalidate_voronoi_cache()
+
+    def _reset_battle_shared_init(self):
+        """Initialize both models with shared seeds for fair comparison."""
+        self.particles = []
+        self.particles_b = []
+
+        if not self.points:
+            self.centroids = []
+            self.centroids_b = []
+            return
+
+        seeds = random.sample(self.points, k=min(self.k, len(self.points)))
+        self.centroids = []
+        self.centroids_b = []
+        for i in range(self.k):
+            p = seeds[i % len(seeds)]
+            color = COLORS[i % len(COLORS)]
+            self.centroids.append(Centroid(p.x, p.y, color))
+            self.centroids_b.append(Centroid(p.x, p.y, color))
+
+        # Reset state for both sides
+        self.iteration_count = 0
+        self.converged = False
+        self.inertia_history = []
+
+        self.iteration_count_b = 0
+        self.converged_b = False
+        self.inertia_history_b = []
+
+        for p in self.points:
+            p.cluster = None
+            p.prev_cluster = None
+        for p in self.points_b:
+            p.cluster = None
+            p.prev_cluster = None
+
+    def _step_model(self, points, centroids, algorithm, inertia_history):
+        """Run one iteration of a model and record inertia. Returns no_changes."""
+        no_changes = self._assign_clusters_for(points, centroids, particles=None, max_particles_per_step=0)
+        if algorithm == "kmedoids":
+            self._update_medoids_for(points, centroids)
+        else:
+            self._update_centroids_for(points, centroids)
+
+        inertia = self._calculate_inertia_for(points, centroids)
+        inertia_history.append(inertia)
+        if len(inertia_history) > 100:
+            inertia_history.pop(0)
+
+        return no_changes
+
+    def step_battle(self):
+        """Advance both A and B models by one iteration (if not converged)."""
+        # A model
+        if not self.converged:
+            no_changes_a = self._step_model(self.points, self.centroids, self.algorithm, self.inertia_history)
+            self.iteration_count += 1
+            if no_changes_a:
+                self.converged = True
+
+        # B model
+        if self.points_b and self.centroids_b and not self.converged_b:
+            no_changes_b = self._step_model(self.points_b, self.centroids_b, self.algorithm_b, self.inertia_history_b)
+            self.iteration_count_b += 1
+            if no_changes_b:
+                self.converged_b = True
+
     def step_algorithm(self):
         """Run one step of the currently selected algorithm."""
+        if self.battle_mode:
+            self.step_battle()
+            return
         if self.algorithm == "kmedoids":
             self.kmedoids_step()
         else:
             self.kmeans_step()
-    
-    def assign_clusters(self):
-        """Assign each point to nearest centroid"""
+
+    def _invalidate_voronoi_cache(self):
+        self._voronoi_cache_a["key"] = None
+        self._voronoi_cache_a["surface"] = None
+        self._voronoi_cache_b["key"] = None
+        self._voronoi_cache_b["surface"] = None
+
+    def _clone_points(self, points):
+        return [Point(p.x, p.y) for p in points]
+
+    def _assign_clusters_for(self, points, centroids, particles=None, max_particles_per_step=0):
+        """Assign each point to nearest centroid (generic)."""
         changes = 0
         particle_count = 0
-        max_particles_per_step = 10  # Limit particle effects
-        
-        for point in self.points:
+
+        for point in points:
             prev_cluster = point.cluster
             min_dist_sq = float('inf')
             closest_centroid = 0
-            
-            for i, centroid in enumerate(self.centroids):
-                # Use squared distance to avoid expensive sqrt
+
+            for i, centroid in enumerate(centroids):
                 dist_sq = point.distance_squared_to(centroid)
                 if dist_sq < min_dist_sq:
                     min_dist_sq = dist_sq
                     closest_centroid = i
-            
+
             if point.cluster != closest_centroid:
                 changes += 1
                 point.prev_cluster = point.cluster
                 point.cluster = closest_centroid
                 point.transition = 0
                 point.scale = 1.5
-                # Add particle effect (limited to prevent performance issues)
-                if point.prev_cluster is not None and particle_count < max_particles_per_step:
-                    self.particles.append(ParticleEffect(point.x, point.y, 
-                                        self.centroids[point.cluster].color))
+
+                if (
+                    particles is not None
+                    and point.prev_cluster is not None
+                    and particle_count < max_particles_per_step
+                ):
+                    particles.append(ParticleEffect(point.x, point.y, centroids[point.cluster].color))
                     particle_count += 1
-        
+
         return changes == 0
-    
-    def update_centroids(self):
-        """Move centroids to mean of their clusters"""
-        for i, centroid in enumerate(self.centroids):
-            cluster_points = [p for p in self.points if p.cluster == i]
-            
+
+    def _update_centroids_for(self, points, centroids):
+        """Move centroids to mean of their clusters (generic)."""
+        for i, centroid in enumerate(centroids):
+            cluster_points = [p for p in points if p.cluster == i]
             if cluster_points:
                 mean_x = sum(p.x for p in cluster_points) / len(cluster_points)
                 mean_y = sum(p.y for p in cluster_points) / len(cluster_points)
-                # Move instantly during algorithm steps for responsiveness
                 centroid.x = mean_x
                 centroid.y = mean_y
                 centroid.target_x = mean_x
                 centroid.target_y = mean_y
-    
-    def calculate_inertia(self):
-        """Calculate Within-Cluster Sum of Squares (WCSS) / Inertia"""
+
+    def _calculate_inertia_for(self, points, centroids):
+        """Calculate WCSS / Inertia for a given clustering state."""
         total = 0
-        for point in self.points:
+        for point in points:
             if point.cluster is not None:
-                centroid = self.centroids[point.cluster]
+                centroid = centroids[point.cluster]
                 total += point.distance_squared_to(centroid)
         return total
-    
-    def kmeans_step(self):
-        """One iteration of K-Means"""
-        if not self.converged:
-            no_changes = self.assign_clusters()
-            self.update_centroids()
-            self.iteration_count += 1
-            
-            # Track inertia for convergence graph
-            inertia = self.calculate_inertia()
-            self.inertia_history.append(inertia)
-            
-            # Keep only last 100 iterations for graph
-            if len(self.inertia_history) > 100:
-                self.inertia_history.pop(0)
-            
-            if no_changes:
-                self.converged = True
 
-    def update_medoids(self):
-        """Update medoids (approximate PAM): pick the point minimizing total intra-cluster distance."""
-        if not self.points:
+    def _update_medoids_for(self, points, centroids):
+        """Update medoids (approximate PAM) for a given clustering state."""
+        if not points:
             return
 
-        for i, centroid in enumerate(self.centroids):
-            cluster_points = [p for p in self.points if p.cluster == i]
+        for i, centroid in enumerate(centroids):
+            cluster_points = [p for p in points if p.cluster == i]
             if not cluster_points:
-                # Re-seed empty cluster medoid
-                p = random.choice(self.points)
+                p = random.choice(points)
                 centroid.x = p.x
                 centroid.y = p.y
                 centroid.target_x = p.x
                 centroid.target_y = p.y
                 continue
 
-            # Candidate set: exact for small clusters, sampled for large clusters
             if len(cluster_points) <= self.kmedoids_candidate_limit:
                 candidates = cluster_points
             else:
@@ -500,6 +744,40 @@ class KMeansGame:
                 centroid.y = best_point.y
                 centroid.target_x = best_point.x
                 centroid.target_y = best_point.y
+    
+    def assign_clusters(self):
+        """Assign each point to nearest centroid"""
+        return self._assign_clusters_for(self.points, self.centroids, particles=self.particles, max_particles_per_step=10)
+    
+    def update_centroids(self):
+        """Move centroids to mean of their clusters"""
+        self._update_centroids_for(self.points, self.centroids)
+    
+    def calculate_inertia(self):
+        """Calculate Within-Cluster Sum of Squares (WCSS) / Inertia"""
+        return self._calculate_inertia_for(self.points, self.centroids)
+    
+    def kmeans_step(self):
+        """One iteration of K-Means"""
+        if not self.converged:
+            no_changes = self.assign_clusters()
+            self.update_centroids()
+            self.iteration_count += 1
+            
+            # Track inertia for convergence graph
+            inertia = self.calculate_inertia()
+            self.inertia_history.append(inertia)
+            
+            # Keep only last 100 iterations for graph
+            if len(self.inertia_history) > 100:
+                self.inertia_history.pop(0)
+            
+            if no_changes:
+                self.converged = True
+
+    def update_medoids(self):
+        """Update medoids (approximate PAM): pick the point minimizing total intra-cluster distance."""
+        self._update_medoids_for(self.points, self.centroids)
 
     def kmedoids_step(self):
         """One iteration of K-Medoids."""
@@ -535,6 +813,137 @@ class KMeansGame:
     def lerp_color(self, c1, c2, t):
         """Linear interpolation between two colors"""
         return tuple(int(c1[i] + (c2[i] - c1[i]) * t) for i in range(3))
+
+    def _get_voronoi_surface(self, centroids, cache, view_w, view_h, x_scale=1.0):
+        """Return a cached Voronoi/decision-region surface for the given centroids."""
+        if not centroids or view_w <= 0 or view_h <= 0:
+            return None
+
+        cell = max(4, int(self.voronoi_cell_size))
+        centroid_key = tuple((int(c.x), int(c.y), idx) for idx, c in enumerate(centroids))
+        key = (view_w, view_h, cell, round(x_scale, 3), centroid_key)
+
+        if cache["key"] == key and cache["surface"] is not None:
+            return cache["surface"]
+
+        s = pygame.Surface((view_w, view_h), pygame.SRCALPHA)
+        alpha = 45
+
+        for y in range(0, view_h, cell):
+            for x in range(0, view_w, cell):
+                # Convert view coordinates back to model coordinates for distance checks
+                mx = x / x_scale if x_scale != 0 else x
+                my = y
+
+                best_i = 0
+                best_d = float("inf")
+                for i, c in enumerate(centroids):
+                    dx = c.x - mx
+                    dy = c.y - my
+                    d = dx * dx + dy * dy
+                    if d < best_d:
+                        best_d = d
+                        best_i = i
+
+                color = centroids[best_i].color
+                pygame.draw.rect(s, (*color, alpha), (x, y, cell, cell))
+
+        cache["key"] = key
+        cache["surface"] = s
+        return s
+
+    def _draw_model_view(self, points, centroids, offset_x, x_scale, view_w, view_h, draw_particles=False, title=None):
+        """Draw one clustering state into a viewport (used for battle mode)."""
+        # Voronoi background (only over the main area, not the bottom UI)
+        if self.show_voronoi:
+            cache = self._voronoi_cache_a if offset_x == 0 else self._voronoi_cache_b
+            v = self._get_voronoi_surface(centroids, cache, view_w, view_h, x_scale=x_scale)
+            if v is not None:
+                self.screen.blit(v, (offset_x, 0))
+
+        # Connection lines
+        connection_surface = pygame.Surface((view_w, view_h), pygame.SRCALPHA)
+        for p in points:
+            if p.cluster is not None and 0 <= p.y < view_h:
+                c = centroids[p.cluster]
+                color = (*c.color, 30)
+                pygame.draw.line(
+                    connection_surface,
+                    color,
+                    (int(p.x * x_scale), int(p.y)),
+                    (int(c.x * x_scale), int(c.y)),
+                    1,
+                )
+        self.screen.blit(connection_surface, (offset_x, 0))
+
+        # Centroid glows
+        for c in centroids:
+            self.draw_glow((offset_x + int(c.x * x_scale), int(c.y)), c.color, int(c.glow_radius))
+
+        # Trails
+        trail_surface = pygame.Surface((view_w, view_h), pygame.SRCALPHA)
+        for p in points:
+            if len(p.trail) > 1 and p.cluster is not None:
+                color = centroids[p.cluster].color
+                for i in range(len(p.trail) - 1):
+                    alpha = int((i / len(p.trail)) * 100)
+                    trail_color = (*color, alpha)
+                    x1, y1 = p.trail[i]
+                    x2, y2 = p.trail[i + 1]
+                    pygame.draw.line(
+                        trail_surface,
+                        trail_color,
+                        (x1 * x_scale, y1),
+                        (x2 * x_scale, y2),
+                        2,
+                    )
+        self.screen.blit(trail_surface, (offset_x, 0))
+
+        # Points
+        for p in points:
+            if p.cluster is None:
+                continue
+            if p.prev_cluster is not None and p.transition < 1:
+                old_color = centroids[p.prev_cluster].color
+                new_color = centroids[p.cluster].color
+                color = self.lerp_color(old_color, new_color, p.transition)
+            else:
+                color = centroids[p.cluster].color
+
+            size = int(6 * p.scale)
+            pygame.draw.circle(self.screen, color, (offset_x + int(p.x * x_scale), int(p.y)), size)
+            pygame.draw.circle(self.screen, WHITE, (offset_x + int(p.x * x_scale), int(p.y)), size, 1)
+
+        # Centroids
+        for c in centroids:
+            pos = (offset_x + int(c.x * x_scale), int(c.y))
+            pygame.draw.circle(self.screen, WHITE, pos, 16)
+            pygame.draw.circle(self.screen, c.color, pos, 14)
+            pygame.draw.circle(self.screen, WHITE, pos, 14, 2)
+
+        # Optional particles (single-view only)
+        if draw_particles:
+            for particle in self.particles:
+                particle.draw(self.screen)
+
+        if title:
+            t = self.small_font.render(title, True, TEXT_COLOR)
+            self.screen.blit(t, (offset_x + 10, 10))
+
+    def draw_battle_view(self):
+        """Draw split-screen comparison between algorithm A and B."""
+        view_h = HEIGHT - 120
+        half = WIDTH // 2
+        x_scale = 0.5
+
+        title_a = f"A: {'K-Means' if self.algorithm == 'kmeans' else 'K-Medoids'}  (iter {self.iteration_count})"
+        title_b = f"B: {'K-Means' if self.algorithm_b == 'kmeans' else 'K-Medoids'}  (iter {self.iteration_count_b})"
+
+        self._draw_model_view(self.points, self.centroids, 0, x_scale, half, view_h, draw_particles=False, title=title_a)
+        self._draw_model_view(self.points_b, self.centroids_b, half, x_scale, half, view_h, draw_particles=False, title=title_b)
+
+        # Divider
+        pygame.draw.line(self.screen, (80, 80, 110), (half, 0), (half, view_h), 2)
     
     def draw(self):
         if self.scene == "menu":
@@ -543,59 +952,70 @@ class KMeansGame:
             return
 
         self.screen.fill(BG_COLOR)
+
+        # Main scene rendering
+        if self.battle_mode:
+            self.draw_battle_view()
+        else:
+            # Voronoi / decision regions (cached)
+            if self.show_voronoi:
+                view_h = HEIGHT - 120
+                v = self._get_voronoi_surface(self.centroids, self._voronoi_cache_a, WIDTH, view_h, x_scale=1.0)
+                if v is not None:
+                    self.screen.blit(v, (0, 0))
         
-        # Optimized: Use single surface for all connection lines
-        connection_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        for point in self.points:
-            if point.cluster is not None:
-                centroid = self.centroids[point.cluster]
-                color = (*centroid.color, 30)
-                pygame.draw.line(connection_surface, color, (int(point.x), int(point.y)), 
-                               (int(centroid.x), int(centroid.y)), 1)
-        self.screen.blit(connection_surface, (0, 0))
-        
-        # Draw centroid glows
-        for centroid in self.centroids:
-            self.draw_glow((int(centroid.x), int(centroid.y)), 
-                          centroid.color, int(centroid.glow_radius))
-        
-        # Optimized: Use single surface for all trails
-        trail_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-        for point in self.points:
-            if len(point.trail) > 1 and point.cluster is not None:
-                color = self.centroids[point.cluster].color
-                for i in range(len(point.trail) - 1):
-                    alpha = int((i / len(point.trail)) * 100)
-                    trail_color = (*color, alpha)
-                    pygame.draw.line(trail_surface, trail_color, point.trail[i], point.trail[i+1], 2)
-        self.screen.blit(trail_surface, (0, 0))
-        
-        # Draw points with color transitions
-        for point in self.points:
-            if point.cluster is not None:
-                if point.prev_cluster is not None and point.transition < 1:
-                    # Blend colors during transition
-                    old_color = self.centroids[point.prev_cluster].color
-                    new_color = self.centroids[point.cluster].color
-                    color = self.lerp_color(old_color, new_color, point.transition)
-                else:
+            # Optimized: Use single surface for all connection lines
+            connection_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            for point in self.points:
+                if point.cluster is not None:
+                    centroid = self.centroids[point.cluster]
+                    color = (*centroid.color, 30)
+                    pygame.draw.line(connection_surface, color, (int(point.x), int(point.y)), 
+                                   (int(centroid.x), int(centroid.y)), 1)
+            self.screen.blit(connection_surface, (0, 0))
+            
+            # Draw centroid glows
+            for centroid in self.centroids:
+                self.draw_glow((int(centroid.x), int(centroid.y)), 
+                              centroid.color, int(centroid.glow_radius))
+            
+            # Optimized: Use single surface for all trails
+            trail_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            for point in self.points:
+                if len(point.trail) > 1 and point.cluster is not None:
                     color = self.centroids[point.cluster].color
-                
-                size = int(6 * point.scale)
-                pygame.draw.circle(self.screen, color, (int(point.x), int(point.y)), size)
-                # Add white highlight
-                pygame.draw.circle(self.screen, WHITE, (int(point.x), int(point.y)), size, 1)
-        
-        # Draw centroids
-        for centroid in self.centroids:
-            pos = (int(centroid.x), int(centroid.y))
-            pygame.draw.circle(self.screen, WHITE, pos, 16)
-            pygame.draw.circle(self.screen, centroid.color, pos, 14)
-            pygame.draw.circle(self.screen, WHITE, pos, 14, 2)
-        
-        # Draw particle effects
-        for particle in self.particles:
-            particle.draw(self.screen)
+                    for i in range(len(point.trail) - 1):
+                        alpha = int((i / len(point.trail)) * 100)
+                        trail_color = (*color, alpha)
+                        pygame.draw.line(trail_surface, trail_color, point.trail[i], point.trail[i+1], 2)
+            self.screen.blit(trail_surface, (0, 0))
+            
+            # Draw points with color transitions
+            for point in self.points:
+                if point.cluster is not None:
+                    if point.prev_cluster is not None and point.transition < 1:
+                        # Blend colors during transition
+                        old_color = self.centroids[point.prev_cluster].color
+                        new_color = self.centroids[point.cluster].color
+                        color = self.lerp_color(old_color, new_color, point.transition)
+                    else:
+                        color = self.centroids[point.cluster].color
+                    
+                    size = int(6 * point.scale)
+                    pygame.draw.circle(self.screen, color, (int(point.x), int(point.y)), size)
+                    # Add white highlight
+                    pygame.draw.circle(self.screen, WHITE, (int(point.x), int(point.y)), size, 1)
+            
+            # Draw centroids
+            for centroid in self.centroids:
+                pos = (int(centroid.x), int(centroid.y))
+                pygame.draw.circle(self.screen, WHITE, pos, 16)
+                pygame.draw.circle(self.screen, centroid.color, pos, 14)
+                pygame.draw.circle(self.screen, WHITE, pos, 14, 2)
+            
+            # Draw particle effects
+            for particle in self.particles:
+                particle.draw(self.screen)
         
         # Draw convergence graph
         if self.show_graph:
@@ -627,8 +1047,8 @@ class KMeansGame:
         # Draw controls
         controls = [
             "SPACE: Step  |  A: Auto  |  R: Reset  |  D: Debug  |  C: Clear",
-            f"P: Points  |  K: Clusters  |  M: Main Menu  |  5/6: Algo  |  S: Stats  |  G: Graph  |  E: Elbow  |  Iter: {self.iteration_count}",
-            "1: Blobs  |  2: Moons  |  3: Circles  |  4: Random  |  Click: Add/Move"
+            f"M: Menu  |  5/6: Algo  |  B: Battle  |  V: Voronoi  |  I/O: CSV  |  IterA: {self.iteration_count}" + (f"  IterB: {self.iteration_count_b}" if self.battle_mode else ""),
+            "1: Blobs  |  2: Moons  |  3: Circles  |  4: Random  |  S: Stats  |  G: Graph  |  E: Elbow"
         ]
         
         y_offset = HEIGHT - 100
@@ -654,13 +1074,18 @@ class KMeansGame:
 
         # Menu items
         algo_label = "K-Means" if self.menu_algorithm == "kmeans" else "K-Medoids"
-        dataset_label = self.menu_dataset.capitalize()
+        if self.menu_dataset == "csv":
+            dataset_label = "CSV (loaded)" if self.csv_points else "CSV (none)"
+        else:
+            dataset_label = self.menu_dataset.capitalize()
         items = [
             ("Algorithm", algo_label),
             ("Dataset", dataset_label),
             ("Points", str(self.menu_points)),
             ("K (clusters)", str(self.menu_k)),
             ("Start", "ENTER"),
+            ("Import CSV", "ENTER"),
+            ("Export CSV", "ENTER"),
             ("Quit", "ESC"),
         ]
 
@@ -682,8 +1107,8 @@ class KMeansGame:
 
         help_lines = [
             "UP/DOWN: select   LEFT/RIGHT: change value",
-            "ENTER: start game   ESC: quit   M: open menu from inside the game",
-            "Quick keys: 1-4 dataset, 5/6 algorithm",
+            "ENTER: activate   ESC: quit   M: open menu from inside the game",
+            "Quick keys: 1-4 dataset, 5/6 algorithm, I: import CSV, O: export CSV",
         ]
         y2 = HEIGHT - 105
         for line in help_lines:
@@ -711,9 +1136,25 @@ class KMeansGame:
             ("", TEXT_COLOR),
             (f"Inertia: {int(self.calculate_inertia())}", COLORS[1]),
             (f"Dataset: {self.dataset_type}", TEXT_COLOR),
+            (f"Voronoi: {'On' if self.show_voronoi else 'Off'}", TEXT_COLOR),
+            (f"Battle: {'On' if self.battle_mode else 'Off'}", TEXT_COLOR),
             ("", TEXT_COLOR),
             ("Cluster Sizes:", COLORS[2]),
         ]
+
+        # If battle mode is active, show B model summary above cluster sizes
+        if self.battle_mode:
+            b_inertia = 0
+            if self.points_b and self.centroids_b:
+                b_inertia = int(self._calculate_inertia_for(self.points_b, self.centroids_b))
+            insert_at = len(debug_info) - 2
+            debug_info[insert_at:insert_at] = [
+                ("", TEXT_COLOR),
+                (f"B Algo: {'K-Means' if self.algorithm_b == 'kmeans' else 'K-Medoids'}", TEXT_COLOR),
+                (f"B Iter: {self.iteration_count_b}", TEXT_COLOR),
+                (f"B Conv: {'Yes' if self.converged_b else 'No'}", TEXT_COLOR),
+                (f"B Inertia: {b_inertia}", COLORS[1]),
+            ]
         
         # Add cluster sizes
         for i in range(self.k):
@@ -783,52 +1224,74 @@ class KMeansGame:
         instr_rect = instr_surf.get_rect(center=(dialog_x + dialog_width // 2, dialog_y + 120))
         self.screen.blit(instr_surf, instr_rect)
     
-    def draw_convergence_graph(self):
-        """Draw a graph showing inertia over iterations"""
+    def draw_convergence_graph_for(self, history, graph_x, graph_y, border_color, line_color, title_text):
+        """Draw a graph showing inertia over iterations for a given history."""
         graph_width = 300
         graph_height = 150
-        graph_x = 10
-        graph_y = 10
-        
-        if len(self.inertia_history) < 2:
+
+        if history is None or len(history) < 2:
             return
-        
+
         # Background
         s = pygame.Surface((graph_width, graph_height), pygame.SRCALPHA)
         pygame.draw.rect(s, (*UI_BG, 240), (0, 0, graph_width, graph_height))
-        pygame.draw.rect(s, COLORS[2], (0, 0, graph_width, graph_height), 2)
+        pygame.draw.rect(s, border_color, (0, 0, graph_width, graph_height), 2)
         self.screen.blit(s, (graph_x, graph_y))
-        
+
         # Title
-        title = self.tiny_font.render("Convergence Graph (Inertia)", True, COLORS[2])
+        title = self.tiny_font.render(title_text, True, border_color)
         self.screen.blit(title, (graph_x + 5, graph_y + 5))
-        
-        # Draw graph
-        if len(self.inertia_history) > 1:
-            max_inertia = max(self.inertia_history)
-            min_inertia = min(self.inertia_history)
-            range_inertia = max_inertia - min_inertia if max_inertia != min_inertia else 1
-            
-            graph_padding = 30
-            plot_width = graph_width - graph_padding * 2
-            plot_height = graph_height - graph_padding * 2
-            
-            points = []
-            for i, inertia in enumerate(self.inertia_history):
-                x = graph_x + graph_padding + (i / (len(self.inertia_history) - 1)) * plot_width
-                normalized = (inertia - min_inertia) / range_inertia
-                y = graph_y + graph_padding + plot_height - (normalized * plot_height)
-                points.append((x, y))
-            
-            # Draw line
-            if len(points) > 1:
-                pygame.draw.lines(self.screen, COLORS[1], False, points, 2)
-            
-            # Draw current value
-            if self.inertia_history:
-                current = self.inertia_history[-1]
-                value_text = self.tiny_font.render(f"Current: {int(current)}", True, COLORS[1])
-                self.screen.blit(value_text, (graph_x + 5, graph_y + graph_height - 20))
+
+        max_inertia = max(history)
+        min_inertia = min(history)
+        range_inertia = max_inertia - min_inertia if max_inertia != min_inertia else 1
+
+        graph_padding = 30
+        plot_width = graph_width - graph_padding * 2
+        plot_height = graph_height - graph_padding * 2
+
+        points = []
+        for i, inertia in enumerate(history):
+            x = graph_x + graph_padding + (i / (len(history) - 1)) * plot_width
+            normalized = (inertia - min_inertia) / range_inertia
+            y = graph_y + graph_padding + plot_height - (normalized * plot_height)
+            points.append((x, y))
+
+        if len(points) > 1:
+            pygame.draw.lines(self.screen, line_color, False, points, 2)
+
+        current = history[-1]
+        value_text = self.tiny_font.render(f"Current: {int(current)}", True, line_color)
+        self.screen.blit(value_text, (graph_x + 5, graph_y + graph_height - 20))
+
+    def draw_convergence_graph(self):
+        """Draw convergence graph(s). In battle mode, draws one per side."""
+        if self.battle_mode:
+            self.draw_convergence_graph_for(
+                self.inertia_history,
+                graph_x=10,
+                graph_y=40,
+                border_color=COLORS[2],
+                line_color=COLORS[1],
+                title_text="A: Inertia",
+            )
+            self.draw_convergence_graph_for(
+                self.inertia_history_b,
+                graph_x=WIDTH - 310,
+                graph_y=40,
+                border_color=COLORS[0],
+                line_color=COLORS[1],
+                title_text="B: Inertia",
+            )
+        else:
+            self.draw_convergence_graph_for(
+                self.inertia_history,
+                graph_x=10,
+                graph_y=10,
+                border_color=COLORS[2],
+                line_color=COLORS[1],
+                title_text="Convergence Graph (Inertia)",
+            )
     
     def draw_elbow_method(self):
         """Draw elbow method visualizer (K vs Inertia)"""
@@ -1035,12 +1498,21 @@ class KMeansGame:
         
         # Remove dead particles
         self.particles = [p for p in self.particles if p.particles]
+
+        if self.battle_mode:
+            for point in self.points_b:
+                point.update()
+            for centroid in self.centroids_b:
+                centroid.update()
+            for particle in self.particles_b:
+                particle.update()
+            self.particles_b = [p for p in self.particles_b if p.particles]
     
     def handle_menu_event(self, event):
         if event.type != pygame.KEYDOWN:
             return
 
-        items_count = 6  # Algorithm, Dataset, Points, K, Start, Quit
+        items_count = 8  # Algorithm, Dataset, Points, K, Start, Import, Export, Quit
 
         if event.key == pygame.K_ESCAPE:
             self.running = False
@@ -1072,10 +1544,24 @@ class KMeansGame:
         if event.key == pygame.K_4:
             self.menu_dataset = "random"
             return
+        if event.key == pygame.K_i:
+            self.import_points_from_csv(stay_in_menu=True)
+            self.menu_dataset = "csv"
+            return
+        if event.key == pygame.K_o:
+            self.export_points_to_csv()
+            return
 
         if event.key == pygame.K_RETURN:
             if self.menu_index == 4:  # Start
                 self._apply_menu_settings_and_start()
+            elif self.menu_index == 5:  # Import CSV
+                self.import_points_from_csv(stay_in_menu=True)
+                self.menu_dataset = "csv"
+            elif self.menu_index == 6:  # Export CSV
+                self.export_points_to_csv()
+            elif self.menu_index == 7:  # Quit
+                self.running = False
             return
 
         # LEFT/RIGHT adjust selected values
@@ -1085,14 +1571,14 @@ class KMeansGame:
             if self.menu_index == 0:  # Algorithm
                 self.menu_algorithm = "kmedoids" if self.menu_algorithm == "kmeans" else "kmeans"
             elif self.menu_index == 1:  # Dataset
-                order = ["random", "blobs", "moons", "circles"]
+                order = ["random", "blobs", "moons", "circles", "csv"]
                 i = order.index(self.menu_dataset) if self.menu_dataset in order else 0
                 self.menu_dataset = order[(i + delta) % len(order)]
             elif self.menu_index == 2:  # Points
                 self.menu_points = max(1, min(500, self.menu_points + (10 * delta)))
             elif self.menu_index == 3:  # K
                 self.menu_k = max(1, min(10, self.menu_k + delta))
-            elif self.menu_index == 5:  # Quit
+            elif self.menu_index == 7:  # Quit
                 if delta != 0:
                     self.running = False
 
@@ -1133,6 +1619,20 @@ class KMeansGame:
                 self.reset_algorithm()
             elif event.key == pygame.K_d:
                 self.show_debug = not self.show_debug
+            elif event.key == pygame.K_v:
+                self.show_voronoi = not self.show_voronoi
+                self._invalidate_voronoi_cache()
+            elif event.key == pygame.K_b:
+                if self.battle_mode:
+                    self.disable_battle_mode()
+                else:
+                    self.enable_battle_mode()
+            elif event.key == pygame.K_i:
+                # Import CSV and replace current dataset
+                self.import_points_from_csv()
+            elif event.key == pygame.K_o:
+                # Export current state
+                self.export_points_to_csv()
             elif event.key == pygame.K_c:
                 self.points.clear()
                 self.particles.clear()
@@ -1163,9 +1663,11 @@ class KMeansGame:
                 self.scene = "menu"
             elif event.key == pygame.K_5:
                 self.algorithm = "kmeans"
+                self.algorithm_b = "kmedoids"
                 self.reset_algorithm()
             elif event.key == pygame.K_6:
                 self.algorithm = "kmedoids"
+                self.algorithm_b = "kmeans"
                 self.reset_algorithm()
             elif event.key == pygame.K_1:
                 n = len(self.points) if self.points else 50
@@ -1189,26 +1691,68 @@ class KMeansGame:
 
             if event.button == 1:  # Left click - add point
                 if my < HEIGHT - 120:
-                    new_point = Point(mx, my)
-                    self.points.append(new_point)
-                    self.particles.append(ParticleEffect(mx, my, COLORS[random.randint(0, len(COLORS)-1)]))
+                    if self.battle_mode:
+                        half = WIDTH // 2
+                        if mx < half:
+                            model_x = mx * 2
+                        else:
+                            model_x = (mx - half) * 2
+                        model_x = max(80, min(WIDTH - 80, model_x))
+                        new_a = Point(model_x, my)
+                        new_b = Point(model_x, my)
+                        self.points.append(new_a)
+                        self.points_b.append(new_b)
+                        self._invalidate_voronoi_cache()
+                    else:
+                        new_point = Point(mx, my)
+                        self.points.append(new_point)
+                        self.particles.append(ParticleEffect(mx, my, COLORS[random.randint(0, len(COLORS)-1)]))
 
             elif event.button == 3:  # Right click - move centroid
-                min_dist_sq = float('inf')
-                nearest_centroid = None
-                threshold_sq = 40 * 40  # 40 pixels squared
+                if self.battle_mode:
+                    half = WIDTH // 2
+                    if mx < half:
+                        model_x = mx * 2
+                    else:
+                        model_x = (mx - half) * 2
+                    model_x = max(80, min(WIDTH - 80, model_x))
 
-                for centroid in self.centroids:
-                    dist_sq = (centroid.x - mx)**2 + (centroid.y - my)**2
-                    if dist_sq < min_dist_sq:
-                        min_dist_sq = dist_sq
-                        nearest_centroid = centroid
+                    def move_nearest(centroids):
+                        min_dist_sq = float("inf")
+                        nearest = None
+                        threshold_sq = 40 * 40
+                        for c in centroids:
+                            dx = c.x - model_x
+                            dy = c.y - my
+                            d = dx * dx + dy * dy
+                            if d < min_dist_sq:
+                                min_dist_sq = d
+                                nearest = c
+                        if nearest and min_dist_sq < threshold_sq:
+                            nearest.target_x = model_x
+                            nearest.target_y = my
+                            nearest.x = model_x
+                            nearest.y = my
 
-                if nearest_centroid and min_dist_sq < threshold_sq:
-                    nearest_centroid.target_x = mx
-                    nearest_centroid.target_y = my
-                    nearest_centroid.x = mx
-                    nearest_centroid.y = my
+                    move_nearest(self.centroids)
+                    move_nearest(self.centroids_b)
+                    self._invalidate_voronoi_cache()
+                else:
+                    min_dist_sq = float('inf')
+                    nearest_centroid = None
+                    threshold_sq = 40 * 40  # 40 pixels squared
+                    
+                    for centroid in self.centroids:
+                        dist_sq = (centroid.x - mx)**2 + (centroid.y - my)**2
+                        if dist_sq < min_dist_sq:
+                            min_dist_sq = dist_sq
+                            nearest_centroid = centroid
+                    
+                    if nearest_centroid and min_dist_sq < threshold_sq:
+                        nearest_centroid.target_x = mx
+                        nearest_centroid.target_y = my
+                        nearest_centroid.x = mx
+                        nearest_centroid.y = my
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -1231,7 +1775,7 @@ class KMeansGame:
             self.update()
             
             # Optimized: Use proper timer instead of modulo
-            if self.scene == "game" and self.auto_iterate and not self.converged:
+            if self.scene == "game" and self.auto_iterate and (not self.converged or (self.battle_mode and not self.converged_b)):
                 if current_time - self.last_iteration_time >= self.iteration_delay:
                     self.step_algorithm()
                     self.last_iteration_time = current_time

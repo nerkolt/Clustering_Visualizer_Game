@@ -17,6 +17,13 @@ python Scripts/Kmeans_Game_Debug.py
 
 ## Controls
 
+### Main Menu (scene)
+
+When the app starts you’ll see a **Main Menu** where you can pick:
+- Algorithm (K‑Means / K‑Medoids)
+- Dataset (Random / Blobs / Moons / Circles / CSV)
+- Number of points, and K
+
 ### Core gameplay
 
 | Key / Action | What it does |
@@ -31,6 +38,7 @@ python Scripts/Kmeans_Game_Debug.py
 | `P` | Set number of points (dialog) |
 | `K` | Set number of clusters **K** (dialog) |
 | `D` | Toggle debug overlay (top-right) |
+| `M` | Back to **Main Menu** |
 
 ### Data mining / analysis
 
@@ -39,6 +47,12 @@ python Scripts/Kmeans_Game_Debug.py
 | `G` | Toggle **convergence graph** (inertia vs iteration) |
 | `S` | Toggle **advanced stats panel** (compactness/separation, per-cluster metrics) |
 | `E` | Run the **elbow method** (K vs inertia) |
+| `V` | Toggle **Voronoi / decision regions** |
+| `B` | Toggle **battle mode (A/B)**: split-screen K‑Means vs K‑Medoids |
+| `I` | **Import CSV** (x,y) |
+| `O` | **Export CSV** (x,y + cluster labels) |
+| `5` | Select **K‑Means** |
+| `6` | Select **K‑Medoids** |
 | `1` | Generate **Blobs** dataset |
 | `2` | Generate **Moons** dataset |
 | `3` | Generate **Circles** dataset |

@@ -44,6 +44,9 @@ Perfect for:
 - **Dataset Presets**: Pre-built datasets (Blobs, Moons, Circles, Random)
 - **Convergence Graph**: Visualize inertia decreasing over iterations
 - **Elbow Method**: Automatically test K values to find optimal cluster count
+- **Voronoi / Decision Regions**: Visualize cluster regions in the plane
+- **Battle Mode (A/B)**: Compare K-Means vs K-Medoids side-by-side on the same data
+- **CSV Import/Export**: Load real datasets and export clustered results
 - **Advanced Statistics**: Detailed cluster quality metrics (compactness, separation, variance)
 - **Cluster Quality Metrics**: Per-cluster analysis with color-coded visualization
 
@@ -134,6 +137,10 @@ python Kmeans_Game_Debug.py
 | `S` | Toggle **advanced stats panel** (cluster quality metrics) |
 | `G` | Toggle **convergence graph** (inertia over iterations) |
 | `E` | Run **elbow method** (find optimal K) |
+| `V` | Toggle **Voronoi / decision regions** |
+| `B` | Toggle **battle mode** (A/B split-screen comparison) |
+| `I` | **Import CSV** (x,y) |
+| `O` | **Export CSV** (x,y + cluster labels; exports both in battle mode) |
 | `1` | Generate **Blobs** dataset (well-separated clusters) |
 | `2` | Generate **Moons** dataset (crescent-shaped, non-linear) |
 | `3` | Generate **Circles** dataset (concentric rings) |
