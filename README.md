@@ -21,6 +21,7 @@ Perfect for:
 - [Debug Panel](#debug-panel)
 - [Data Mining Features](#data-mining-features)
 - [Project Structure](#project-structure)
+- [Demo](#Demo)
 - [Bibliography / Research](#bibliography)
 - [Troubleshooting](#troubleshooting)
 - [Customization](#customization)
