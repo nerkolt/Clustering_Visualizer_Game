@@ -4,6 +4,37 @@ import random
 import pygame
 
 
+_PARTICLE_CIRCLE_CACHE = {}
+
+
+def _get_particle_circle_surface(radius: int, rgb, alpha: int, step: int = 32):
+    """
+    Cached tiny circle surfaces for particle effects.
+    We quantize alpha into buckets to drastically reduce Surface allocations.
+    """
+    r = int(max(1, radius))
+    a = int(max(0, min(255, alpha)))
+    # Quantize alpha (bucketed)
+    if step > 1:
+        a = int(round(a / step) * step)
+        a = max(0, min(255, a))
+
+    key = (r, int(rgb[0]), int(rgb[1]), int(rgb[2]), a)
+    s = _PARTICLE_CIRCLE_CACHE.get(key)
+    if s is not None:
+        return s
+
+    # Keep cache bounded (simple strategy)
+    if len(_PARTICLE_CIRCLE_CACHE) > 800:
+        _PARTICLE_CIRCLE_CACHE.clear()
+
+    size = r * 2
+    s = pygame.Surface((size, size), pygame.SRCALPHA)
+    pygame.draw.circle(s, (int(rgb[0]), int(rgb[1]), int(rgb[2]), a), (r, r), r)
+    _PARTICLE_CIRCLE_CACHE[key] = s
+    return s
+
+
 class Point:
     def __init__(self, x, y):
         self.x = float(x)
@@ -90,17 +121,15 @@ class ParticleEffect:
 
         self.particles = [p for p in self.particles if p["life"] > 0]
 
-    def draw(self, screen):
+    def draw(self, screen, x_scale=1.0, x_offset=0, y_offset=0):
         for p in self.particles:
             alpha = int(p["life"] * 255)
-            color = (*p["color"], alpha)
             size = int(p["life"] * 4)
             if size <= 0:
                 continue
-            pos = (int(p["x"]), int(p["y"]))
-
-            s = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(s, color, (size, size), size)
-            screen.blit(s, (pos[0] - size, pos[1] - size))
+            sx = int(x_offset + (p["x"] * x_scale))
+            sy = int(y_offset + p["y"])
+            s = _get_particle_circle_surface(size, p["color"], alpha, step=32)
+            screen.blit(s, (sx - size, sy - size))
 
 

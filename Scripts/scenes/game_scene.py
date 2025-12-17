@@ -613,7 +613,7 @@ class GameScene:
         pygame.draw.circle(s, (*color, 70), (r, r), r)
         self.app.screen.blit(s, (pos[0] - r, pos[1] - r))
 
-    def _draw_model_view(self, points, centroids, particles, view_rect, x_scale, vor_cache, side_label):
+    def _draw_model_view(self, points, centroids, particles, view_rect, x_scale, vor_cache, side_label, status_lines=None):
         screen = self.app.screen
 
         # Decision regions
@@ -683,11 +683,37 @@ class GameScene:
 
         # Particles
         for pe in particles:
-            pe.draw(screen)
+            pe.draw(screen, x_scale=x_scale, x_offset=view_rect.x, y_offset=view_rect.y)
 
         # Side label
         label = self.app.small_font.render(side_label, True, TEXT_COLOR)
         screen.blit(label, (view_rect.x + 10, view_rect.y + 10))
+
+        # Status badge(s) near the model (important in battle mode)
+        if status_lines:
+            pad_x = 10
+            pad_y = 8
+            gap = 4
+            lines = [(txt, col) for (txt, col) in status_lines if txt]
+            if lines:
+                widths = [self.app.tiny_font.size(t)[0] for (t, _c) in lines]
+                height = self.app.tiny_font.get_height()
+                box_w = max(widths) + pad_x * 2
+                box_h = (len(lines) * height) + ((len(lines) - 1) * gap) + pad_y * 2
+
+                x = view_rect.right - box_w - 10
+                y = view_rect.y + 8
+
+                s = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+                pygame.draw.rect(s, (0, 0, 0, 140), (0, 0, box_w, box_h), border_radius=10)
+                pygame.draw.rect(s, (80, 80, 110, 200), (0, 0, box_w, box_h), 1, border_radius=10)
+                screen.blit(s, (x, y))
+
+                ty = y + pad_y
+                for txt, col in lines:
+                    surf = self.app.tiny_font.render(txt, True, col)
+                    screen.blit(surf, (x + pad_x, ty))
+                    ty += height + gap
 
     def draw_input_dialog(self):
         dialog_width = 460
@@ -910,7 +936,27 @@ class GameScene:
             half = WIDTH // 2
             left_view = pygame.Rect(0, 0, half, play_h)
             right_view = pygame.Rect(half, 0, half, play_h)
-            self._draw_model_view(self.points, self.centroids, self.particles, left_view, 0.5, self._vor_cache_a, f"A: {self.algorithm}")
+            a_done = self.converged
+            b_done = self.converged_b
+            mode_tag = "AUTO" if self.auto_iterate else "MANUAL"
+            a_color = COLORS[1] if a_done else COLORS[0]
+            b_color = COLORS[1] if b_done else COLORS[0]
+            a_state = "CONVERGED ✓" if a_done else "RUNNING"
+            b_state = "CONVERGED ✓" if b_done else "RUNNING"
+
+            self._draw_model_view(
+                self.points,
+                self.centroids,
+                self.particles,
+                left_view,
+                0.5,
+                self._vor_cache_a,
+                f"A: {self.algorithm}",
+                status_lines=[
+                    (f"{mode_tag} | {a_state}", a_color),
+                    (f"Iter: {self.iteration_count}", TEXT_COLOR),
+                ],
+            )
             self._draw_model_view(
                 self.points_b,
                 self.centroids_b,
@@ -919,10 +965,30 @@ class GameScene:
                 0.5,
                 self._vor_cache_b,
                 f"B: {self.algorithm_b}",
+                status_lines=[
+                    (f"{mode_tag} | {b_state}", b_color),
+                    (f"Iter: {self.iteration_count_b}", TEXT_COLOR),
+                ],
             )
             pygame.draw.line(screen, (80, 80, 110), (half, 0), (half, play_h), 2)
         else:
-            self._draw_model_view(self.points, self.centroids, self.particles, play_rect, 1.0, self._vor_cache_a, f"{self.algorithm}")
+            done = self.converged
+            mode_tag = "AUTO" if self.auto_iterate else "MANUAL"
+            state_color = COLORS[1] if done else COLORS[0]
+            state = "CONVERGED ✓" if done else "RUNNING"
+            self._draw_model_view(
+                self.points,
+                self.centroids,
+                self.particles,
+                play_rect,
+                1.0,
+                self._vor_cache_a,
+                f"{self.algorithm}",
+                status_lines=[
+                    (f"{mode_tag} | {state}", state_color),
+                    (f"Iter: {self.iteration_count}", TEXT_COLOR),
+                ],
+            )
 
         # Graphs / overlays
         if self.show_graph:
