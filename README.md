@@ -8,7 +8,7 @@ Perfect for:
 - Enjoying beautiful data visualizations
 - Understanding machine learning concepts visually
 
-![K-Means Game](Assets/Start.png)
+![Clustering Visualizer Game](Assets/StartMenu.PNG)
 
 <a id="toc"></a>
 ## 📑 Table of Contents
@@ -23,6 +23,7 @@ Perfect for:
 - [Debug Panel](#debug-panel)
 - [Data Mining Features](#data-mining-features)
 - [Project Structure](#project-structure)
+- [Bibliography / Research](#bibliography)
 - [Troubleshooting](#troubleshooting)
 - [Customization](#customization)
 
@@ -36,11 +37,11 @@ Perfect for:
 - **Scale-pop effects** when points switch clusters
 
 ### Visual Effects
-- ✨ **Glowing, pulsing halos** around centroids
-- 💥 **Particle explosions** when points change clusters
-- 🌠 **Trailing effects** behind moving points
-- 🔗 **Faint connection lines** from points to centroids
-- 🎯 **Smooth color transitions** for better visual feedback
+- **Glowing, pulsing halos** around centroids
+- **Particle explosions** when points change clusters
+- **Trailing effects** behind moving points
+- **Faint connection lines** from points to centroids
+- **Smooth color transitions** for better visual feedback
 
 ### Modern Design
 - Rich color palette (Coral, Turquoise, Pink, Peach, Lavender)
@@ -147,7 +148,7 @@ From the project root:
 tools/release/build_exe.bat onedir
 ```
 
-Output: `dist/KmeansGame/KmeansGame.exe`
+Output: `dist/ClusteringVisualizerGame/ClusteringVisualizerGame.exe`
 
 ### Option B: single-file build
 
@@ -155,7 +156,7 @@ Output: `dist/KmeansGame/KmeansGame.exe`
 tools/release/build_exe.bat onefile
 ```
 
-Output: `dist/KmeansGame.exe`
+Output: `dist/ClusteringVisualizerGame.exe`
 
 ### Notes / troubleshooting
 
@@ -183,7 +184,7 @@ tools/release/build_exe.bat installer
 ```
 
 Output:
-- `dist-installer/KmeansGame-Setup-<version>.exe`
+- `dist-installer/ClusteringVisualizerGame-Setup-<version>.exe`
 
 Details:
 - **Publisher**: Nour Ltaief
@@ -199,8 +200,8 @@ git push origin v1.0.0
 ```
 
 The workflow will attach these files to the GitHub Release:
-- `dist-installer/KmeansGame-Setup-<version>.exe`
-- `dist/KmeansGame/KmeansGame.exe`
+- `dist-installer/ClusteringVisualizerGame-Setup-<version>.exe`
+- `dist/ClusteringVisualizerGame/ClusteringVisualizerGame.exe`
 
 <a id="controls"></a>
 ## Controls & Usage
@@ -262,6 +263,8 @@ When you press `P` or `K`:
 <a id="debug-panel"></a>
 ## Debug Panel
 
+![Clustering Visualizer Game](Assets/with%20a%20dataset.PNG)
+
 Press `D` to toggle the debug overlay (top-right corner). It displays:
 
 - **FPS**: Real-time frame rate
@@ -292,14 +295,37 @@ The panel automatically resizes based on the number of clusters!
 
 Test K-Means on different data distributions:
 
-- **Blobs** (`1`): Well-separated Gaussian clusters - perfect for K-Means
-- **Moons** (`2`): Two crescent-shaped clusters - challenges K-Means (non-linear)
-- **Circles** (`3`): Concentric ring clusters - another non-linear challenge
-- **Random** (`4`): Uniform random distribution - baseline test
+- **Blobs** (`1`): 
+
+![Clustering Visualizer Game](Assets/blobs.PNG)
+
+Well-separated Gaussian clusters - perfect for K-Means
+
+- **Moons** (`2`): 
+
+![Clustering Visualizer Game](Assets/moons.PNG)
+
+Two crescent-shaped clusters - challenges K-Means (non-linear)
+
+- **Circles** (`3`): 
+
+![Clustering Visualizer Game](Assets/circles.PNG)
+
+Concentric ring clusters - another non-linear challenge
+
+
+- **Random** (`4`): 
+
+
+![Clustering Visualizer Game](Assets/random.PNG)
+
+Uniform random distribution - baseline test
 
 **Tip**: Try the Moons dataset with K=2 to see how K-Means struggles with non-linear data!
 
 ### Convergence Graph
+
+![Clustering Visualizer Game](Assets/inertia.PNG)
 
 Press `G` to toggle the convergence graph (top-left corner).
 
@@ -311,6 +337,8 @@ Press `G` to toggle the convergence graph (top-left corner).
 **What to look for**: A downward trend that flattens out indicates convergence.
 
 ### Elbow Method
+
+![Clustering Visualizer Game](Assets/Elbow.PNG)
 
 Press `E` to run the elbow method analysis (bottom-right corner).
 
@@ -383,15 +411,27 @@ Kmeans_Game/
 └── Visualisation.md                  # Visualization guide
 ```
 
-## Mini‑project checklist (3DNI Data Mining)
+<a id="bibliography"></a>
+## Bibliography / Research
 
-This repository is structured to satisfy typical mini‑project constraints (algorithm + visualization + report/demo). Your course PDF/statement is not included in this repo.
+### Research links (used for concepts and implementation details)
 
-- **At least one data mining algorithm**: K‑Means clustering (+ inertia/WCSS, elbow method, convergence graph).
-- **Clear README**: install, dependencies, commands, usage, screenshots.
-- **Original work**: interactive “game” visualization + added analysis tools (datasets, metrics, elbow method).
+- Visualizing the inner workings of the k-means clustering algorithm : https://paulvanderlaken.com/2018/12/12/visualizing-the-inner-workings-of-the-k-means-clustering-algorithm/
+- K‑Medoids (PAM): https://en.wikipedia.org/wiki/K-medoids
+- DBSCAN: https://en.wikipedia.org/wiki/DBSCAN
+- Voronoi / decision regions: https://en.wikipedia.org/wiki/Voronoi_diagram
+- Elbow method: https://en.wikipedia.org/wiki/Elbow_method_(clustering)
+- Inertia / WCSS: https://en.wikipedia.org/wiki/Within-cluster_sum_of_squares
+- Okabe–Ito colorblind-friendly palette: https://jfly.uni-koeln.de/color/
+- Inno Setup (installer): https://jrsoftware.org/isinfo.php
 
-Submission note: follow your instructor’s submission instructions (email / LMS / GitHub link), since requirements vary by class.
+### In-class work (travaux pratiques)
+
+This project builds on the **travaux pratiques** done in class (3DNI1) with **Yassine Net**, including:
+- Running **K‑Means and DBSCAN** (assign → update → convergence)
+- Interpreting clustering quality via **inertia/WCSS** and **the elbow method**
+- Adding section of K-medoids that wasn't successfully applied .
+- Comparing behavior on different dataset shapes (blobs vs non-linear shapes like moons/circles)
 
 ## 🎓 Understanding the Algorithms
 
@@ -493,6 +533,7 @@ Contributions are welcome! Feel free to:
 ## Contact & Support
 
 For questions, issues, or suggestions, please open an issue on the GitHub repository.
+To contact me directly send an e-mail : nour0ltaief@gmail.com
 
 ---
 
@@ -521,3 +562,6 @@ For questions, issues, or suggestions, please open an issue on the GitHub reposi
 **Enjoy exploring K-Means clustering!**
 
 *Press `A` to watch the magic happen automatically, or use `SPACE` to step through each iteration manually.*
+
+
+![Clustering Visualizer Game](Assets/BattleMode.PNG)
