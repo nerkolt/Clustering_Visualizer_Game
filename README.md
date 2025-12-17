@@ -8,7 +8,7 @@ Perfect for:
 - Enjoying beautiful data visualizations
 - Understanding machine learning concepts visually
 
-![Clustering Visualizer Game](Assets/Start.png)
+![Clustering Visualizer Game](Assets/StartMenu.PNG)
 
 <a id="toc"></a>
 ## 📑 Table of Contents
@@ -263,6 +263,8 @@ When you press `P` or `K`:
 <a id="debug-panel"></a>
 ## Debug Panel
 
+![Clustering Visualizer Game](Assets/with%20a%20dataset.PNG)
+
 Press `D` to toggle the debug overlay (top-right corner). It displays:
 
 - **FPS**: Real-time frame rate
@@ -293,14 +295,37 @@ The panel automatically resizes based on the number of clusters!
 
 Test K-Means on different data distributions:
 
-- **Blobs** (`1`): Well-separated Gaussian clusters - perfect for K-Means
-- **Moons** (`2`): Two crescent-shaped clusters - challenges K-Means (non-linear)
-- **Circles** (`3`): Concentric ring clusters - another non-linear challenge
-- **Random** (`4`): Uniform random distribution - baseline test
+- **Blobs** (`1`): 
+
+![Clustering Visualizer Game](Assets/blobs.PNG)
+
+Well-separated Gaussian clusters - perfect for K-Means
+
+- **Moons** (`2`): 
+
+![Clustering Visualizer Game](Assets/moons.PNG)
+
+Two crescent-shaped clusters - challenges K-Means (non-linear)
+
+- **Circles** (`3`): 
+
+![Clustering Visualizer Game](Assets/circles.PNG)
+
+Concentric ring clusters - another non-linear challenge
+
+
+- **Random** (`4`): 
+
+
+![Clustering Visualizer Game](Assets/random.PNG)
+
+Uniform random distribution - baseline test
 
 **Tip**: Try the Moons dataset with K=2 to see how K-Means struggles with non-linear data!
 
 ### Convergence Graph
+
+![Clustering Visualizer Game](Assets/inertia.PNG)
 
 Press `G` to toggle the convergence graph (top-left corner).
 
@@ -312,6 +337,8 @@ Press `G` to toggle the convergence graph (top-left corner).
 **What to look for**: A downward trend that flattens out indicates convergence.
 
 ### Elbow Method
+
+![Clustering Visualizer Game](Assets/Elbow.PNG)
 
 Press `E` to run the elbow method analysis (bottom-right corner).
 
@@ -383,16 +410,6 @@ Kmeans_Game/
 ├── Tutorial.md                       # Detailed tutorial/controls
 └── Visualisation.md                  # Visualization guide
 ```
-
-## Mini‑project checklist (3DNI Data Mining)
-
-This repository is structured to satisfy typical mini‑project constraints (algorithm + visualization + report/demo). Your course PDF/statement is not included in this repo.
-
-- **At least one data mining algorithm**: K‑Means clustering (+ inertia/WCSS, elbow method, convergence graph).
-- **Clear README**: install, dependencies, commands, usage, screenshots.
-- **Original work**: interactive “game” visualization + added analysis tools (datasets, metrics, elbow method).
-
-Submission note: follow your instructor’s submission instructions (email / LMS / GitHub link), since requirements vary by class.
 
 <a id="bibliography"></a>
 ## Bibliography / Research
@@ -516,6 +533,7 @@ Contributions are welcome! Feel free to:
 ## Contact & Support
 
 For questions, issues, or suggestions, please open an issue on the GitHub repository.
+To contact me directly send an e-mail : nour0ltaief@gmail.com
 
 ---
 
@@ -544,3 +562,6 @@ For questions, issues, or suggestions, please open an issue on the GitHub reposi
 **Enjoy exploring K-Means clustering!**
 
 *Press `A` to watch the magic happen automatically, or use `SPACE` to step through each iteration manually.*
+
+
+![Clustering Visualizer Game](Assets/BattleMode.PNG)
