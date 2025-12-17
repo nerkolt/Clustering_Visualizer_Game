@@ -635,7 +635,9 @@ class GameScene:
         connection_surface = pygame.Surface((view_rect.w, view_rect.h), pygame.SRCALPHA)
 
         # Connections
-        if self.show_debug and centroids:
+        # Connection lines are core to understanding assignments, so they should not
+        # depend on debug-panel visibility.
+        if centroids:
             for p in points:
                 if p.cluster is None:
                     continue
