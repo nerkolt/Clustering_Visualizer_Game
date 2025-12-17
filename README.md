@@ -399,22 +399,21 @@ Submission note: follow your instructor’s submission instructions (email / LMS
 
 ### Research links (used for concepts and implementation details)
 
-- K‑Means clustering: https://en.wikipedia.org/wiki/K-means_clustering
+- Visualizing the inner workings of the k-means clustering algorithm : https://paulvanderlaken.com/2018/12/12/visualizing-the-inner-workings-of-the-k-means-clustering-algorithm/
 - K‑Medoids (PAM): https://en.wikipedia.org/wiki/K-medoids
 - DBSCAN: https://en.wikipedia.org/wiki/DBSCAN
 - Voronoi / decision regions: https://en.wikipedia.org/wiki/Voronoi_diagram
 - Elbow method: https://en.wikipedia.org/wiki/Elbow_method_(clustering)
 - Inertia / WCSS: https://en.wikipedia.org/wiki/Within-cluster_sum_of_squares
 - Okabe–Ito colorblind-friendly palette: https://jfly.uni-koeln.de/color/
-- Pygame (rendering/input): https://www.pygame.org/docs/
-- PyInstaller (EXE builds): https://pyinstaller.org/en/stable/
 - Inno Setup (installer): https://jrsoftware.org/isinfo.php
 
 ### In-class work (travaux pratiques)
 
 This project builds on the **travaux pratiques** done in class (3DNI1) with **Yassine Net**, including:
-- Running **K‑Means step-by-step** (assign → update → convergence)
+- Running **K‑Means and DBSCAN** (assign → update → convergence)
 - Interpreting clustering quality via **inertia/WCSS** and **the elbow method**
+- Adding section of K-medoids that wasn't successfully applied .
 - Comparing behavior on different dataset shapes (blobs vs non-linear shapes like moons/circles)
 
 ## 🎓 Understanding the Algorithms
