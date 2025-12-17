@@ -17,8 +17,6 @@ Perfect for:
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [How to Run](#how-to-run)
-- [Build a Windows EXE (Release)](#build-windows-exe)
-- [Build a Windows Installer (Setup.exe)](#build-windows-installer)
 - [Controls & Usage](#controls)
 - [Debug Panel](#debug-panel)
 - [Data Mining Features](#data-mining-features)
@@ -159,36 +157,10 @@ tools/release/build_exe.bat onefile
 Output: `dist/ClusteringVisualizerGame.exe`
 
 ### Notes / troubleshooting
-
+ **check development branch for more details**
+ 
 - The game uses **Tkinter file dialogs** for CSV import/export; in the EXE build the dialogs will open in your current folder (better UX).
 - If Windows Defender flags the EXE, prefer the **one-folder** build (it’s usually less problematic than one-file).
-
-<a id="build-windows-installer"></a>
-## Build a Windows Installer (Setup.exe)
-
-If you want a real installer for GitHub Releases (Start Menu shortcut + optional Desktop shortcut + uninstaller), use **Inno Setup**.
-
-### Install Inno Setup
-
-- Option 1: installer from the official Inno Setup website
-- Option 2 (recommended): Chocolatey
-
-```powershell
-choco install innosetup -y
-```
-
-### Build installer (uses your icon + publisher)
-
-```bat
-tools/release/build_exe.bat installer
-```
-
-Output:
-- `dist-installer/ClusteringVisualizerGame-Setup-<version>.exe`
-
-Details:
-- **Publisher**: Nour Ltaief
-- **Icon**: `Assets/logo.png` converted to `.ico` during build
 
 ### GitHub Actions (automatic Release uploads)
 
@@ -392,23 +364,9 @@ Kmeans_Game/
 │   ├── scenes/
 │   │   ├── menu_scene.py             # Main menu UI
 │   │   └── game_scene.py             # Main game view + overlays
-│
-├── Assets/                           # README screenshots + app logo
-│   ├── logo.png
-│   ├── Start.png
-│   ├── Auto Mode.png
-│   └── 50Points.png
-│
-├── tools/
-│   └── make_icon.py                  # Converts Assets/logo.png -> build/logo.ico
-├── installer.iss                     # Inno Setup installer script (publisher + icon)
-├── tools/release/
-│   ├── build_exe.bat                 # Windows build helper (PyInstaller + installer)
-│   └── build_exe.ps1                 # PowerShell build helper
+├── Assets/screenshots                # README screenshots + app logo
 ├── requirements.txt                  # Python dependencies
 ├── README.md                         # This file
-├── Tutorial.md                       # Detailed tutorial/controls
-└── Visualisation.md                  # Visualization guide
 ```
 
 <a id="bibliography"></a>
