@@ -144,7 +144,7 @@ You can create a standalone Windows build using **PyInstaller**.
 From the project root:
 
 ```bash
-build_exe.bat onedir
+tools/release/build_exe.bat onedir
 ```
 
 Output: `dist/KmeansGame/KmeansGame.exe`
@@ -152,7 +152,7 @@ Output: `dist/KmeansGame/KmeansGame.exe`
 ### Option B: single-file build
 
 ```bash
-build_exe.bat onefile
+tools/release/build_exe.bat onefile
 ```
 
 Output: `dist/KmeansGame.exe`
@@ -179,7 +179,7 @@ choco install innosetup -y
 ### Build installer (uses your icon + publisher)
 
 ```bat
-build_exe.bat installer
+tools/release/build_exe.bat installer
 ```
 
 Output:
@@ -374,8 +374,9 @@ Kmeans_Game/
 ├── tools/
 │   └── make_icon.py                  # Converts Assets/logo.png -> build/logo.ico
 ├── installer.iss                     # Inno Setup installer script (publisher + icon)
-├── build_exe.bat                     # Windows build helper (PyInstaller + installer)
-├── build_exe.ps1                     # PowerShell build helper
+├── tools/release/
+│   ├── build_exe.bat                 # Windows build helper (PyInstaller + installer)
+│   └── build_exe.ps1                 # PowerShell build helper
 ├── requirements.txt                  # Python dependencies
 ├── README.md                         # This file
 ├── Tutorial.md                       # Detailed tutorial/controls
