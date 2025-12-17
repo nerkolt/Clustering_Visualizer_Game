@@ -1,45 +1,59 @@
-# K-Means Clustering Game 🎮
+# K‑Means Clustering Game 🎮 (Tutorial)
 
-![screenshot](./Assets/Start.png)  
+![screenshot](./Assets/Start.png)
 
-## Features
+## What this project is
 
-- Fully interactive visualization of the K-Means algorithm
-- Step-by-step or automatic iteration
-- Add your own data points with left click
-- Manually drag centroids with right click
-- Change number of clusters (K) on the fly
-- Instant reset with new random centroids
-- Clean, commented, educational code (~180 lines)
+An interactive K‑Means clustering “game” where you can:
+- Create / edit datasets in real time
+- Run K‑Means step-by-step or automatically
+- See **data mining metrics** like **inertia (WCSS)**, convergence history, and the **elbow method**
 
-## How to Play / Controls
-
-| Key / Action          | Function                                      |
-|-----------------------|-----------------------------------------------|
-| `SPACE`               | Run **one step** of K-Means                   |
-| `A`                   | Toggle **auto-iteration** (watch it run)      |
-| `R`                   | **Reset** with new random centroids           |
-| `↑` / `↓`             | Increase / Decrease number of clusters **K**  |
-| `Left Click`          | Add a new data point at mouse position        |
-| `Right Click + Drag`  | Manually move a centroid                      |
-| `ESC` or close window | Quit the game                                 |
-
-## What You'll See
-
-- **Colored dots** → data points (color = assigned cluster)
-- **Larger circles with black borders** → current centroids
-- Real-time reassignment and centroid movement as the algorithm converges
-
-## Installation & Running
+## Run it
 
 ```bash
-# 1. Clone or download this repository
-git clone https://github.com/nerkolt/kmeans-game.git
-cd kmeans-game
-
-# 2. Install pygame
-pip install pygame
-
-# 3. Run the game!
-python kmeans_game.py
+python Scripts/Kmeans_Game_Debug.py
 ```
+
+## Controls
+
+### Core gameplay
+
+| Key / Action | What it does |
+|---|---|
+| `LEFT CLICK` | Add a new point (in the main area) |
+| `RIGHT CLICK` | Move the nearest centroid (when close enough) |
+| `SPACE` | Run **one** K‑Means iteration |
+| `A` | Toggle **Auto** mode |
+| `R` | Reset centroids (keeps points) |
+| `C` | Clear all points |
+| `↑` / `↓` | Increase / decrease **K** quickly |
+| `P` | Set number of points (dialog) |
+| `K` | Set number of clusters **K** (dialog) |
+| `D` | Toggle debug overlay (top-right) |
+
+### Data mining / analysis
+
+| Key | What it does |
+|---|---|
+| `G` | Toggle **convergence graph** (inertia vs iteration) |
+| `S` | Toggle **advanced stats panel** (compactness/separation, per-cluster metrics) |
+| `E` | Run the **elbow method** (K vs inertia) |
+| `1` | Generate **Blobs** dataset |
+| `2` | Generate **Moons** dataset |
+| `3` | Generate **Circles** dataset |
+| `4` | Generate **Random** dataset |
+
+## What to try (recommended for the report/demo)
+
+- **Best case for K‑Means**: press `1` (Blobs), set `K` equal to the number of visible blobs, press `A`.
+- **K‑Means limitation (non‑linear)**: press `2` (Moons) and try `K=2`. You’ll see it doesn’t separate the moons well.
+- **Pick K scientifically**: press `E` to run the elbow method, then set `K` and compare results using `S` and `G`.
+
+## Key data mining terms (quick)
+
+- **Inertia / WCSS**: sum of squared distances from points to their assigned centroid. Lower generally means “tighter clusters”.
+- **Elbow method**: plot inertia vs K; the “bend” suggests a good K.
+- **Convergence**: when assignments stop changing between iterations.
+
+

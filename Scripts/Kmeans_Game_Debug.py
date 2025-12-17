@@ -144,7 +144,12 @@ class KMeansGame:
         
         # Performance optimization: timer for auto-iteration
         self.last_iteration_time = 0
-        self.iteration_delay = 150  # milliseconds between iterations
+        # Slightly slower by default so clustering feels more “game-like”
+        self.iteration_delay = 300  # milliseconds between iterations
+        
+        # Point spacing (makes convergence take longer visually + reduces overlap)
+        self.min_point_distance = 25
+        self.max_tries_per_point = 250
         
         # Data mining features
         self.inertia_history = []  # Track inertia over iterations
@@ -158,13 +163,43 @@ class KMeansGame:
         self.generate_points(50)
         self.reset_centroids()
     
-    def generate_points(self, n):
-        """Generate random points"""
+    def _generate_spaced_points(self, n, min_dist=25, max_tries_per_point=200):
+        """Generate points with a minimum distance between them."""
         self.points = []
+        min_dist_sq = min_dist * min_dist
+        
         for _ in range(n):
-            x = random.randint(80, WIDTH - 80)
-            y = random.randint(80, HEIGHT - 140)
-            self.points.append(Point(x, y))
+            placed = False
+            for _try in range(max_tries_per_point):
+                x = random.randint(80, WIDTH - 80)
+                y = random.randint(80, HEIGHT - 140)
+                
+                ok = True
+                for p in self.points:
+                    dx = p.x - x
+                    dy = p.y - y
+                    if dx * dx + dy * dy < min_dist_sq:
+                        ok = False
+                        break
+                
+                if ok:
+                    self.points.append(Point(x, y))
+                    placed = True
+                    break
+            
+            # Fallback (if screen gets too dense for the requested min_dist)
+            if not placed:
+                x = random.randint(80, WIDTH - 80)
+                y = random.randint(80, HEIGHT - 140)
+                self.points.append(Point(x, y))
+    
+    def generate_points(self, n):
+        """Generate random points (spaced out)."""
+        self._generate_spaced_points(
+            n,
+            min_dist=self.min_point_distance,
+            max_tries_per_point=self.max_tries_per_point,
+        )
         self.dataset_type = "random"
     
     def generate_blobs(self, n, centers=None):

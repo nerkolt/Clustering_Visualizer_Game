@@ -1,83 +1,51 @@
-# KMeans Game – Interactive K-Means Clustering Visualizer
+# Visualisation Notes (Data Mining View)
 
-An engaging, beautiful, and educational Python game that lets you **play with the famous K-Means clustering algorithm in real-time**! Watch clusters form, centroids dance, and points dramatically switch allegiances with smooth animations and satisfying visual effects.
+This document focuses on what the visual elements mean from a **data mining** perspective.
 
-Perfect for learning how K-Means works, experimenting with different datasets, or just enjoying mesmerizing data visualizations.
+## Screenshots
 
-![demo preview](https://via.placeholder.com/800x450.png?text=KMeans+Game+Demo+Coming+Soon)  
-*(Replace with your own screenshot or GIF)*
+- Start screen: `Assets/Start.png`
+- Auto mode example: `Assets/Auto Mode.png`
+- 50 points example: `Assets/50Points.png`
 
-## ✨ Features & Visual Polish
+## Visual legend
 
-### Smooth & Satisfying Animations
-- Centroids **glide smoothly** to their new positions (no more teleporting!)
-- Points **gracefully transition** between clusters with easing
-- Colors **blend beautifully** during reassignment
+- **Small colored points**: data samples
+  - Color = assigned cluster
+  - Animated color blending = cluster reassignment over time
+- **Large glowing circles**: centroids
+  - Move to the mean of assigned points each iteration
+- **Faint lines**: point → assigned centroid (helps you see assignments)
+- **Trails**: recent point motion / animation path (purely visual)
 
-### Eye-Candy Overload
-- ✨ **Glowing, pulsing halos** around centroids
-- 💥 **Particle explosions** when a point changes cluster
-- 🌠 **Trailing effects** behind moving points
-- 🎯 **Scale-pop animation** on cluster switch
-- Subtle **connection lines** from points to their centroid
+## Data mining overlays
 
-### Gorgeous Modern Aesthetics
-- Rich color palette: Coral, Turquoise, Pink, Peach, Lavender, and more
-- Dark background for maximum contrast and vibrancy
-- Smooth color transitions instead of harsh changes
-- White highlights on points for added depth
+### Debug overlay (`D`)
 
-### Clean User Interface
-- Sleek bottom control panel
-- Clear status indicator: `CONVERGED ✓` | `RUNNING` | `PAUSED` | `AUTO`
-- Elegant typography and spacing
+Shows runtime information (FPS, number of points, K, iterations, cluster sizes) plus:
+- **Inertia (WCSS)**: lower usually means better cluster compactness
+- **Dataset type**: random/blobs/moons/circles
 
-## 🎮 Controls
+### Convergence graph (`G`)
 
-| Key          | Action                                      |
-|--------------|---------------------------------------------|
-| `Click`      | Add a new data point at mouse position      |
-| `Space`      | Pause / Resume the algorithm                |
-| `A`          | Run automatically until convergence         |
-| `S`          | Step through one iteration manually         |
-| `C`          | Clear all points                            |
-| `R`          | Randomly generate points (default behavior) |
-| `P`          | Open dialog → Set custom number of points (1–500) |
-| `K`          | Open dialog → Set number of clusters (1–10) |
-| `↑` / `↓`    | Quickly increase/decrease K                 |
-| `D`          | Toggle debug overlay (top-right)            |
-| `ESC`        | Cancel input dialog                         |
-| `Enter`      | Confirm number in dialog                    |
+A mini plot of **inertia over iterations**:
+- Downward trend → clustering improving
+- Flat line → convergence / no significant improvement
 
-### 💡 Input Dialog (P or K)
-1. Press `P` or `K`
-2. Type your desired number
-3. Press `Enter` → Apply
-4. Press `ESC` → Cancel
+### Advanced stats (`S`)
 
-**Pro tip:** Press `P`, type `300`, hit Enter → instantly generate 300 points!
+Adds higher-signal quality indicators:
+- **Min separation** (closest centroid-to-centroid distance)
+- Per-cluster **avg distance**, **variance/compactness**, and **size**
 
-## 🔧 Debug Overlay (Press D)
+### Elbow method (`E`)
 
-Toggles a real-time information panel showing:
+Runs multiple clustering trials for \(K=1..10\), then plots **K vs inertia**:
+- The “elbow” (big improvement slows down) suggests a good K choice
 
-- FPS (frames per second)
-- Total points
-- Current K (number of clusters)
-- Iteration count
-- Active particle effects
-- Convergence status
-- Per-cluster point counts (color-coded!)
+## Why some datasets “break” K‑Means
 
-Great for analyzing performance and understanding cluster balance.
+- **Blobs**: works well because clusters are roughly spherical.
+- **Moons / Circles**: K‑Means struggles because it uses distance-to-centroid and prefers spherical partitions.
 
-## 🚀 How to Run
 
-```bash
-# Clone or download the repository
-git clone https://github.com/yourusername/kmeans_game.git
-cd kmeans_game
-
-# Install dependencies
-pip install pygame numpy
-```

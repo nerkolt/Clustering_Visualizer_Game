@@ -79,6 +79,12 @@ pip3 install pygame
 python -m pip install pygame
 ```
 
+#### Recommended (one command)
+
+```bash
+python -m pip install -r requirements.txt
+```
+
 ### Step 3: Verify Installation
 
 ```bash
@@ -253,6 +259,17 @@ Kmeans_Game/
 ├── Tutorial.md                   # Detailed tutorial
 └── Visualisation.md              # Visualization guide
 ```
+
+## ✅ Mini‑project checklist (3DNI Data Mining)
+
+This repository is structured to satisfy the mini‑project constraints in [`file://Enoncé Mini Projet 3DNI.pdf`](file://Enoncé%20Mini%20Projet%203DNI.pdf):
+
+- **At least one data mining algorithm**: K‑Means clustering (+ inertia/WCSS, elbow method, convergence graph).
+- **Clear README**: install, dependencies, commands, usage, screenshots.
+- **Original work**: interactive “game” visualization + added analysis tools (datasets, metrics, elbow method).
+
+What is **not** part of the repo (submission step):
+- **Email submission**: send group names/class + project title + GitHub link to `yassine-net@hotmail.fr` before the deadline.
 
 ## 🎓 Understanding K-Means
 
